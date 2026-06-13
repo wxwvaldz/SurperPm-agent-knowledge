@@ -2,15 +2,16 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Eye, EyeOff, Search } from 'lucide-react'
 import { api } from '@/lib/api'
-import type { Repo, User } from '@/api/client'
+import type { Repo, User } from '@/lib/schemas/auth'
 import { useAuth } from '@/context/AuthContext'
 import { Button } from '@/components/retroui/Button'
 import { Input } from '@/components/retroui/Input'
 import { Label } from '@/components/retroui/Label'
 import { Text } from '@/components/retroui/Text'
 import { Alert } from '@/components/retroui/Alert'
+import { Tooltip } from '@/components/retroui/Tooltip'
 
-// ---- inline icons ----
+import { hasProfileInStorage } from './Profile'
 
 const GithubIcon = ({ size = 20, className = '' }: { size?: number; className?: string }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}>
@@ -236,6 +237,7 @@ function SelectStep({
             </div>
           ) : (
             <div style={{ maxHeight: 320, overflowY: 'auto', overflowX: 'hidden' }}>
+              <Tooltip.Provider>
               {filtered.length === 0 ? (
                 <div className="p-8 text-center text-sm text-muted-foreground">
                   没有匹配的仓库
@@ -244,36 +246,45 @@ function SelectStep({
                 filtered.map((repo) => {
                   const sel = selectedRepo?.name === repo.name && selectedRepo?.owner === repo.owner
                   return (
-                    <button
-                      key={`${repo.owner}/${repo.name}`}
-                      onClick={() => onSelect(repo)}
-                      className={`w-full text-left flex items-center gap-3 px-4 py-3 border-l-2 border-r-2 border-b border-[#d4d4d4] cursor-pointer transition-all duration-100
-                        first:border-t-2 first:border-t-border
-                        last:border-b-2 last:border-b-border
-                        ${sel ? 'bg-primary border-l-[#8B5CF6]' : 'bg-white hover:bg-primary hover:border-l-[#8B5CF6]'}`}
-                    >
-                      <GithubIcon size={18} className="shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono text-sm font-bold truncate">{repo.owner}/{repo.name}</span>
-                          <span className={`inline-flex text-[11px] px-2 py-0.5 border border-border font-semibold shrink-0 ${repo.private ? 'bg-[#f0f0f0] text-muted-foreground' : 'bg-[#cfc] text-[#060]'}`}>
-                            {repo.private ? 'Private' : 'Public'}
-                          </span>
-                        </div>
-                        {repo.desc && (
-                          <div className="text-xs text-muted-foreground mt-0.5 truncate">{repo.desc}</div>
-                        )}
-                      </div>
-                      <div className="text-xs text-muted-foreground text-right shrink-0">
-                        <div className="flex items-center gap-1 justify-end">
-                          ★ {repo.stars}
-                        </div>
-                        <div className="text-gray-300">{repo.updated}</div>
-                      </div>
-                    </button>
+                    <Tooltip key={`${repo.owner}/${repo.name}`}>
+                      <Tooltip.Trigger
+                        render={
+                          <button
+                            onClick={() => onSelect(repo)}
+                            className={`w-full text-left flex items-center gap-3 px-4 py-3 border-l-2 border-r-2 border-b border-[#d4d4d4] cursor-pointer transition-all duration-100
+                              first:border-t-2 first:border-t-border
+                              last:border-b-2 last:border-b-border
+                              ${sel ? 'bg-primary border-l-[#8B5CF6]' : 'bg-white hover:bg-primary hover:border-l-[#8B5CF6]'}`}
+                          >
+                            <GithubIcon size={18} className="shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="font-mono text-sm font-bold truncate">{repo.owner}/{repo.name}</span>
+                                <span className={`inline-flex text-[11px] px-2 py-0.5 border border-border font-semibold shrink-0 ${repo.private ? 'bg-[#f0f0f0] text-muted-foreground' : 'bg-[#cfc] text-[#060]'}`}>
+                                  {repo.private ? 'Private' : 'Public'}
+                                </span>
+                              </div>
+                              {repo.desc && (
+                                <div className="text-xs text-muted-foreground mt-0.5 truncate">{repo.desc}</div>
+                              )}
+                            </div>
+                            <div className="text-xs text-muted-foreground text-right shrink-0">
+                              <div className="flex items-center gap-1 justify-end">
+                                ★ {repo.stars}
+                              </div>
+                              <div className="text-gray-300">{repo.updated}</div>
+                            </div>
+                          </button>
+                        }
+                      />
+                      <Tooltip.Content variant="solid">
+                        {repo.owner}/{repo.name}
+                      </Tooltip.Content>
+                    </Tooltip>
                   )
                 })
               )}
+            </Tooltip.Provider>
             </div>
           )}
 
@@ -427,9 +438,28 @@ export default function LoginOAuth() {
 
     if (stepParam === 'select') {
       window.history.replaceState({}, '', '/login')
-      loadRepos()
+      handleOAuthReturn()
     }
   }, [])
+
+  // After OAuth, decide between full setup (first time) and token-only entry.
+  const handleOAuthReturn = async () => {
+    try {
+      const { initialized } = await api.get<{ initialized: boolean; is_founder: boolean }>('/setup/init-state')
+      if (initialized) {
+        // Second login: system already initialized — enter directly,
+        // inheriting the globally-configured repo + AI key.
+        await api.post('/auth/github/complete', {})
+        refresh()
+        // Check localStorage for personal profile
+        navigate(hasProfileInStorage() ? '/' : '/profile')
+        return
+      }
+    } catch {
+      // fall through to the full repo-selection flow
+    }
+    loadRepos()
+  }
 
   useEffect(() => {
     if (step === 'select') setSearchQuery('')
@@ -487,7 +517,7 @@ export default function LoginOAuth() {
         const slug = selectedRepo.name.toLowerCase().replace(/[^a-z0-9-]/g, '-')
         ws = await api.post<{ id: string; name: string; slug: string }>('/workspaces', { name: selectedRepo.name, slug, repo_url: repoFullName })
       }
-      navigate(`/workspace/${ws.slug}/goals`)
+      navigate(`/profile`)
     } catch (e) {
       setError(e instanceof Error ? e.message : '登录失败，请重试')
     } finally {

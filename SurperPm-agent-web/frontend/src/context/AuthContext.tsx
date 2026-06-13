@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react'
 import { api } from '@/lib/api'
-import type { User } from '@/api/client'
+import type { User } from '@/lib/schemas/auth'
 
 interface AuthState {
   user: User | null

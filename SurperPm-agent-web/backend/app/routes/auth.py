@@ -4,9 +4,11 @@ SuperPmAgent does not have a user table. Session = itsdangerous-signed cookie
 carrying the user's GitHub token + username + repo. Identity is implicit:
 "if you can access the repo with this token, you can log in."
 """
+import asyncio
 import logging
 import secrets
 import time
+from datetime import UTC, datetime
 from typing import Annotated
 
 import requests
@@ -16,6 +18,7 @@ from fastapi.responses import HTMLResponse
 from app.config import settings
 from app.services import github_client
 from app.services import session as session_svc
+from app.services.crypto import encrypt
 
 _logger = logging.getLogger(__name__)
 
@@ -26,6 +29,54 @@ COOKIE_MAX_AGE = 7 * 24 * 3600  # 7 days
 OAUTH_STATE_COOKIE = "SuperPmAgent_oauth_state"
 OAUTH_STATE_MAX_AGE = 600  # 10 minutes
 FRONTEND_URL = settings.frontend_url
+
+
+async def _ensure_knowledge_repo(repo: str, token: str, username: str = "") -> None:
+    """Persist the login repo as the knowledge_repo_url + encrypt token.
+
+    The first user to bind the repo becomes the founder.
+    """
+    from app.database import async_session
+    from app.models.global_config import GlobalConfig
+
+    async with async_session() as session:
+        cfg = await session.get(GlobalConfig, 1)
+        if not cfg:
+            return
+        repo_url = f"https://github.com/{repo}"
+        if not cfg.knowledge_repo_url:
+            cfg.knowledge_repo_url = repo_url
+            if username and not cfg.founder_username:
+                cfg.founder_username = username
+        cfg.github_token_enc = encrypt(token)
+        cfg.updated_at = datetime.now(UTC)
+        session.add(cfg)
+        await session.commit()
+
+    from app.services.knowledge_sync import ensure_knowledge_cloned
+    asyncio.create_task(ensure_knowledge_cloned())
+
+
+async def _global_config_snapshot() -> tuple[bool, str | None, str, str]:
+    """Return (initialized, founder_username, repo 'owner/repo', anthropic_key)."""
+    from app.database import async_session
+    from app.models.global_config import GlobalConfig
+    from app.services.crypto import decrypt
+
+    async with async_session() as session:
+        cfg = await session.get(GlobalConfig, 1)
+        if not cfg:
+            return False, None, "", ""
+        repo = ""
+        if cfg.knowledge_repo_url:
+            repo = cfg.knowledge_repo_url.replace("https://github.com/", "").strip("/")
+        key = ""
+        if cfg.ai_api_key_enc:
+            try:
+                key = decrypt(cfg.ai_api_key_enc)
+            except Exception:
+                key = ""
+        return bool(cfg.knowledge_repo_url), cfg.founder_username, repo, key
 
 
 def _post_with_retry(url: str, json: dict, max_retries: int = 3) -> requests.Response | None:
@@ -61,17 +112,22 @@ async def pat_repos(payload: dict) -> dict:
     try:
         user_info = github_client.get_user_info(pat)
     except Exception:
-        raise HTTPException(status_code=401, detail="Invalid PAT or GitHub unreachable")
+        raise HTTPException(
+            status_code=401, detail="Invalid PAT or GitHub unreachable"
+        ) from None
 
     try:
         repos = github_client.list_user_repos(pat)
     except Exception:
         repos = []
 
+    initialized, founder, _repo, _key = await _global_config_snapshot()
     return {
         "username": user_info["username"],
         "avatar_url": user_info.get("avatar_url", ""),
         "repos": repos,
+        "initialized": initialized,
+        "is_founder": bool(founder) and user_info["username"] == founder,
     }
 
 
@@ -81,10 +137,18 @@ async def login(payload: dict, response: Response) -> dict:
     pat = payload.get("pat", "").strip()
     repo = payload.get("repo", "").strip()
     anthropic_key = payload.get("anthropic_key", "").strip()
-    if not pat or not repo:
-        raise HTTPException(
-            status_code=400, detail="pat and repo required"
-        )
+    if not pat:
+        raise HTTPException(status_code=400, detail="pat required")
+
+    # Second login (already initialized): non-founders just provide a token and
+    # inherit the globally-configured repo + AI key.
+    initialized, _founder, global_repo, global_key = await _global_config_snapshot()
+    if not repo:
+        if not (initialized and global_repo):
+            raise HTTPException(status_code=400, detail="repo required")
+        repo = global_repo
+    if not anthropic_key:
+        anthropic_key = global_key
 
     r = requests.get(
         f"https://api.github.com/repos/{repo}",
@@ -126,6 +190,8 @@ async def login(payload: dict, response: Response) -> dict:
         max_age=COOKIE_MAX_AGE,
     )
 
+    await _ensure_knowledge_repo(repo, pat, username)
+
     return {"ok": True, "username": username, "repo": repo, "profile_missing": not username}
 
 
@@ -145,10 +211,13 @@ async def me(
     data = session_svc.decode(SuperPmAgent_session)
     if not data:
         raise HTTPException(status_code=401, detail="invalid_session")
+    username = data.get("username", "")
+    _initialized, founder, _repo, _key = await _global_config_snapshot()
     return {
-        "username": data.get("username", ""),
+        "username": username,
         "repo": data.get("repo", ""),
         "avatar_url": data.get("avatar_url", ""),
+        "is_founder": bool(founder) and username == founder,
     }
 
 
@@ -308,8 +377,15 @@ async def github_complete(
 
     repo = payload.get("repo", "").strip()
     anthropic_key = payload.get("anthropic_key", "").strip()
+
+    # Second login (already initialized): non-founders inherit the global repo + key.
+    initialized, _founder, global_repo, global_key = await _global_config_snapshot()
     if not repo:
-        raise HTTPException(status_code=400, detail="repo required")
+        if not (initialized and global_repo):
+            raise HTTPException(status_code=400, detail="repo required")
+        repo = global_repo
+    if not anthropic_key:
+        anthropic_key = global_key
 
     # Parse "owner/repo"
     parts = repo.split("/")
@@ -335,5 +411,7 @@ async def github_complete(
         samesite="lax",
         max_age=COOKIE_MAX_AGE,
     )
+
+    await _ensure_knowledge_repo(repo, token, username)
 
     return {"ok": True, "username": username, "repo": repo, "profile_missing": not username}
