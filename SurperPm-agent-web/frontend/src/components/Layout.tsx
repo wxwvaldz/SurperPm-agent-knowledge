@@ -1,27 +1,62 @@
-import { NavLink, Outlet } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { api } from '../api/client'
+import { Button } from '@/components/retroui/Button'
+import { Badge } from '@/components/retroui/Badge'
+import { Text } from '@/components/retroui/Text'
 
 const navItems = [
-  { to: '/setup', label: 'Setup' },
-  { to: '/config', label: 'Config' },
-  { to: '/knowledge', label: 'Knowledge' },
   { to: '/goal', label: 'Goal' },
+  { to: '/knowledge', label: 'Knowledge' },
+  { to: '/config', label: 'Config' },
+  { to: '/setup', label: 'Profile' },
 ]
 
+// 模块级缓存，避免每次导航都重新请求
+let _userCache: { username: string; repo: string; avatar_url: string } | null = null
+
 export default function Layout() {
+  const navigate = useNavigate()
+  const [user, setUser] = useState(_userCache ?? { username: '', repo: '', avatar_url: '' })
+
+  useEffect(() => {
+    if (_userCache) return
+    api.auth.me().then((u) => {
+      _userCache = u
+      setUser(u)
+    }).catch(() => {
+      navigate('/login')
+    })
+  }, [navigate])
+
+  const logout = async () => {
+    try {
+      await api.auth.logout()
+    } catch {
+      /* cookie cleared anyway */
+    }
+    navigate('/login')
+  }
+
+  const copyRepo = () => {
+    void navigator.clipboard?.writeText(user.repo)
+  }
+
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50 text-gray-900">
-      <nav className="border-b bg-white px-6 py-3 flex items-center gap-6 sticky top-0 z-10">
-        <span className="font-bold text-lg">⚡ SuperPmAgent</span>
+    <div className="h-screen flex flex-col bg-background text-foreground">
+      <nav className="border-b-2 bg-card px-4 sm:px-6 py-3 flex items-center gap-4 sm:gap-6 sticky top-0 z-10">
+        <Text as="h3" className="font-bold shrink-0">SuperPmAgent</Text>
+
         <div className="flex gap-1">
           {navItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
               className={({ isActive }) =>
-                `px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                `px-3 py-1.5 border-2 text-sm font-medium transition-colors ${
                   isActive
-                    ? 'bg-gray-900 text-white'
-                    : 'text-gray-600 hover:bg-gray-100'
+                    ? 'bg-primary text-primary-foreground border-border'
+                    : 'border-transparent text-muted-foreground hover:bg-accent hover:text-accent-foreground'
                 }`
               }
             >
@@ -29,11 +64,31 @@ export default function Layout() {
             </NavLink>
           ))}
         </div>
-        <div className="ml-auto text-sm text-gray-500">
-          v0.1.0 wireframe
+
+        <div className="ml-auto flex items-center gap-3">
+          <button
+            onClick={copyRepo}
+            className="cursor-pointer"
+            title="点击复制仓库地址"
+          >
+            <Badge variant="outline" className="font-mono cursor-pointer">{user.repo}</Badge>
+          </button>
+          <div className="w-px h-4 bg-border" />
+          {user.avatar_url && (
+            <img
+              src={user.avatar_url}
+              alt={user.username}
+              className="w-6 h-6 rounded-full border border-border object-cover shrink-0"
+            />
+          )}
+          <span className="text-sm font-medium">@{user.username}</span>
+          <Button variant="ghost" size="sm" onClick={logout}>
+            退出
+          </Button>
         </div>
       </nav>
-      <main className="flex-1">
+
+      <main className="flex-1 min-h-0 overflow-auto nb-scrollbar flex flex-col">
         <Outlet />
       </main>
     </div>

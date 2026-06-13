@@ -2,6 +2,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.routes import auth as auth_routes
 from app.routes import config as config_routes
 from app.routes import goal as goal_routes
 from app.routes import knowledge as knowledge_routes
@@ -15,12 +16,13 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=["http://localhost:5173", "http://localhost:5174"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+app.include_router(auth_routes.router, prefix="/api/auth", tags=["auth"])
 app.include_router(setup_routes.router, prefix="/api/setup", tags=["setup"])
 app.include_router(config_routes.router, prefix="/api/config", tags=["config"])
 app.include_router(knowledge_routes.router, prefix="/api/knowledge", tags=["knowledge"])

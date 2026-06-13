@@ -1,22 +1,65 @@
 /**
- * Thin API client. All endpoints are stubs that the backend will fill in W2.
+ * Thin API client for SuperPmAgent-web.
  * Vite dev proxies /api → http://localhost:8000.
  */
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`/api${path}`, {
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     ...init,
   })
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
+  if (!res.ok) {
+    const detail = await res.text().catch(() => res.statusText)
+    throw new Error(detail)
+  }
   return res.json()
 }
 
+export interface Repo {
+  name: string
+  owner: string
+  private: boolean
+  desc: string
+  updated: string
+  stars: number
+}
+
 export const api = {
+  auth: {
+    login: (data: { pat: string; repo: string; anthropic_key: string }) =>
+      request<{ ok: boolean; username: string; repo: string; profile_missing: boolean }>(
+        '/auth/login',
+        { method: 'POST', body: JSON.stringify(data) },
+      ),
+    me: () =>
+      request<{ username: string; repo: string; avatar_url: string }>('/auth/me'),
+    logout: () =>
+      request<{ ok: boolean }>('/auth/logout', { method: 'POST' }),
+    githubAuthorize: () =>
+      request<{ url: string }>('/auth/github/authorize'),
+    githubRepos: () =>
+      request<Repo[]>('/auth/github/repos'),
+    githubComplete: (data: { repo: string; anthropic_key: string }) =>
+      request<{ ok: boolean; username: string; repo: string; profile_missing: boolean }>(
+        '/auth/github/complete',
+        { method: 'POST', body: JSON.stringify(data) },
+      ),
+  },
   setup: {
-    state: () => request<{ completed: boolean; step: number }>('/setup/state'),
-    saveStep: (data: unknown) =>
-      request('/setup/save-step', { method: 'POST', body: JSON.stringify(data) }),
-    finish: () => request<{ ok: boolean; cli: string }>('/setup/finish', { method: 'POST' }),
+    state: () =>
+      request<{ completed: boolean; auto_detected_languages: Record<string, number>; answers: Record<string, unknown> | null }>('/setup/state'),
+    teamProfile: () =>
+      request<{
+        team_name: string
+        description: string
+        members: { login: string; avatar_url: string }[]
+        languages: Record<string, number>
+        team_md_exists: boolean
+      }>('/setup/team-profile'),
+    finish: (data: { answers: Record<string, unknown>; auto_detected_languages?: Record<string, number> }) =>
+      request<{ ok: boolean; sha: string }>('/setup/finish', { method: 'POST', body: JSON.stringify(data) }),
+    updateProfile: (data: { answers: Record<string, unknown> }) =>
+      request<{ ok: boolean; sha: string }>('/setup/update-profile', { method: 'POST', body: JSON.stringify(data) }),
   },
   knowledge: {
     tree: () => request('/knowledge/tree'),
