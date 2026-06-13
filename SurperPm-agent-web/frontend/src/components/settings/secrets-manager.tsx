@@ -3,18 +3,19 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { secretListOptions, secretKeys } from "@/lib/queries/secrets";
 import { api } from "@/lib/api";
 import type { Secret } from "@/lib/schemas/secret";
+import { Eye, EyeOff } from "lucide-react";
+import { Button } from "@/components/retroui/Button";
+import { Input } from "@/components/retroui/Input";
+import { Label } from "@/components/retroui/Label";
+import { Select } from "@/components/retroui/Select";
+import { Badge } from "@/components/retroui/Badge";
+import { Alert } from "@/components/retroui/Alert";
 
-interface SecretsManagerProps {
-  workspaceSlug: string;
-}
+const CATEGORIES = ["env", "token", "server", "other"] as const;
 
-const CATEGORIES = ["env", "token", "other"] as const;
-
-export function SecretsManager({ workspaceSlug }: SecretsManagerProps) {
+export function SecretsManager() {
   const queryClient = useQueryClient();
-  const { data: secrets = [], isLoading } = useQuery(
-    secretListOptions(workspaceSlug)
-  );
+  const { data: secrets = [], isLoading } = useQuery(secretListOptions());
 
   const [showForm, setShowForm] = useState(false);
   const [newKey, setNewKey] = useState("");
@@ -23,11 +24,9 @@ export function SecretsManager({ workspaceSlug }: SecretsManagerProps) {
 
   const addMutation = useMutation({
     mutationFn: (body: { key: string; value: string; category: string }) =>
-      api.post(`/workspaces/${workspaceSlug}/secrets`, body),
+      api.post("/global-config/secrets", body),
     onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: secretKeys.all(workspaceSlug),
-      });
+      queryClient.invalidateQueries({ queryKey: secretKeys.all() });
       setNewKey("");
       setNewValue("");
       setNewCategory("env");
@@ -37,11 +36,9 @@ export function SecretsManager({ workspaceSlug }: SecretsManagerProps) {
 
   const deleteMutation = useMutation({
     mutationFn: (secretId: number) =>
-      api.delete(`/workspaces/${workspaceSlug}/secrets/${secretId}`),
+      api.delete(`/global-config/secrets/${secretId}`),
     onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: secretKeys.all(workspaceSlug),
-      });
+      queryClient.invalidateQueries({ queryKey: secretKeys.all() });
     },
   });
 
@@ -64,81 +61,86 @@ export function SecretsManager({ workspaceSlug }: SecretsManagerProps) {
           Manage secrets (API keys, tokens, environment variables) for this
           workspace.
         </p>
-        <button
+        <Button
+          variant={showForm ? "outline" : "default"}
           onClick={() => setShowForm(!showForm)}
-          className="px-3 py-1.5 text-sm rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
         >
           {showForm ? "Cancel" : "Add Secret"}
-        </button>
+        </Button>
       </div>
 
       {showForm && (
         <form
           onSubmit={handleAdd}
-          className="p-4 border border-border rounded-md space-y-3 bg-muted/30"
+          className="p-4 border-2 border-border shadow-[4px_4px_0_0_#000] bg-muted/30 space-y-3"
         >
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div>
-              <label className="block text-xs font-medium mb-1">Key</label>
-              <input
+              <Label htmlFor="secret-key" className="mb-1.5 block text-xs">
+                Key
+              </Label>
+              <Input
+                id="secret-key"
                 type="text"
                 value={newKey}
                 onChange={(e) => setNewKey(e.target.value)}
                 placeholder="SECRET_NAME"
-                className="w-full rounded-md border border-border px-3 py-1.5 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-ring"
+                className="font-mono"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium mb-1">Value</label>
-              <input
+              <Label htmlFor="secret-value" className="mb-1.5 block text-xs">
+                Value
+              </Label>
+              <Input
+                id="secret-value"
                 type="password"
                 value={newValue}
                 onChange={(e) => setNewValue(e.target.value)}
                 placeholder="secret-value"
-                className="w-full rounded-md border border-border px-3 py-1.5 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-ring"
+                className="font-mono"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium mb-1">Category</label>
-              <select
-                value={newCategory}
-                onChange={(e) => setNewCategory(e.target.value)}
-                className="w-full rounded-md border border-border px-3 py-1.5 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-ring"
-              >
-                {CATEGORIES.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat}
-                  </option>
-                ))}
-              </select>
+              <Label className="mb-1.5 block text-xs">Category</Label>
+              <Select value={newCategory} onValueChange={(v) => v && setNewCategory(v)}>
+                <Select.Trigger className="w-full">
+                  <Select.Value />
+                </Select.Trigger>
+                <Select.Content>
+                  {CATEGORIES.map((cat) => (
+                    <Select.Item key={cat} value={cat}>
+                      {cat}
+                    </Select.Item>
+                  ))}
+                </Select.Content>
+              </Select>
             </div>
           </div>
-          <button
-            type="submit"
-            disabled={addMutation.isPending}
-            className="px-4 py-1.5 text-sm rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
-          >
+          <Button type="submit" disabled={addMutation.isPending}>
             {addMutation.isPending ? "Adding..." : "Save Secret"}
-          </button>
+          </Button>
           {addMutation.isError && (
-            <p className="text-destructive text-xs">
-              {(addMutation.error as Error).message}
-            </p>
+            <Alert status="warning">
+              <Alert.Description>
+                {(addMutation.error as Error).message}
+              </Alert.Description>
+            </Alert>
           )}
         </form>
       )}
 
       {secrets.length === 0 ? (
         <p className="text-sm text-muted-foreground py-4">
-          No secrets configured yet. Click "Add Secret" to get started.
+          No secrets configured yet. Click &quot;Add Secret&quot; to get
+          started.
         </p>
       ) : (
-        <div className="border border-border rounded-md divide-y divide-border">
+        <div className="border-2 border-border divide-y-2 divide-border">
           {secrets.map((secret) => (
             <SecretRow
               key={secret.id}
               secret={secret}
-              workspaceSlug={workspaceSlug}
               onDelete={() => deleteMutation.mutate(secret.id)}
               isDeleting={deleteMutation.isPending}
             />
@@ -151,17 +153,11 @@ export function SecretsManager({ workspaceSlug }: SecretsManagerProps) {
 
 interface SecretRowProps {
   secret: Secret;
-  workspaceSlug: string;
   onDelete: () => void;
   isDeleting: boolean;
 }
 
-function SecretRow({
-  secret,
-  workspaceSlug,
-  onDelete,
-  isDeleting,
-}: SecretRowProps) {
+function SecretRow({ secret, onDelete, isDeleting }: SecretRowProps) {
   const [revealed, setRevealed] = useState<string | null>(null);
   const [revealing, setRevealing] = useState(false);
 
@@ -173,7 +169,7 @@ function SecretRow({
     setRevealing(true);
     try {
       const res = await api.get<{ value: string }>(
-        `/workspaces/${workspaceSlug}/secrets/${secret.id}/reveal`
+        `/global-config/secrets/${secret.id}/reveal`
       );
       setRevealed(res.value);
     } catch {
@@ -187,9 +183,7 @@ function SecretRow({
     <div className="flex items-center justify-between px-4 py-3">
       <div className="flex items-center gap-4">
         <span className="font-mono text-sm font-medium">{secret.key}</span>
-        <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
-          {secret.category}
-        </span>
+        <Badge>{secret.category}</Badge>
         <span className="font-mono text-xs text-muted-foreground">
           {revealed !== null ? revealed : "***"}
         </span>
@@ -198,17 +192,26 @@ function SecretRow({
         <button
           onClick={handleReveal}
           disabled={revealing}
-          className="px-2 py-1 text-xs rounded border border-border hover:bg-muted transition-colors disabled:opacity-50"
+          className="p-1.5 border-2 border-border bg-background hover:bg-muted transition-all disabled:opacity-50"
+          title={revealed !== null ? "隐藏" : "显示"}
         >
-          {revealing ? "..." : revealed !== null ? "Hide" : "Reveal"}
+          {revealing ? (
+            <span className="inline-block w-3.5 h-3.5 animate-spin rounded-full border-2 border-foreground border-t-transparent" />
+          ) : revealed !== null ? (
+            <EyeOff size={14} />
+          ) : (
+            <Eye size={14} />
+          )}
         </button>
-        <button
+        <Button
+          variant="outline"
+          size="sm"
           onClick={onDelete}
           disabled={isDeleting}
-          className="px-2 py-1 text-xs rounded border border-destructive text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50"
+          className="text-destructive border-destructive hover:bg-destructive/10"
         >
           Delete
-        </button>
+        </Button>
       </div>
     </div>
   );

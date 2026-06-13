@@ -1,23 +1,25 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import { sshKeyOptions, globalConfigKeys } from "@/lib/queries/global-config";
+import { Button } from "@/components/retroui/Button";
+import { Textarea } from "@/components/retroui/Textarea";
+import { Alert } from "@/components/retroui/Alert";
+import { KeyRound, Copy, RefreshCw } from "lucide-react";
 
-interface SshKeyDisplayProps {
-  workspaceSlug: string;
-}
-
-export function SshKeyDisplay({ workspaceSlug }: SshKeyDisplayProps) {
+export function SshKeyDisplay() {
   const [copied, setCopied] = useState(false);
+  const queryClient = useQueryClient();
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ["ssh-public-key", workspaceSlug],
-    queryFn: () =>
-      api.get<{ public_key: string }>(
-        `/workspaces/${workspaceSlug}/ssh-public-key`
-      ),
+  const { data, isLoading, error } = useQuery(sshKeyOptions());
+  const publicKey = data?.ssh_public_key ?? "";
+
+  const generateMutation = useMutation({
+    mutationFn: () => api.post<{ ssh_public_key: string }>("/global-config/generate-ssh-key"),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: globalConfigKeys.sshKey() });
+    },
   });
-
-  const publicKey = data?.public_key ?? "";
 
   const handleCopy = async () => {
     if (!publicKey) return;
@@ -27,48 +29,66 @@ export function SshKeyDisplay({ workspaceSlug }: SshKeyDisplayProps) {
   };
 
   if (isLoading) {
-    return (
-      <div className="text-muted-foreground text-sm">
-        Loading SSH key...
-      </div>
-    );
+    return <div className="text-foreground/40 text-sm">Loading SSH key...</div>;
   }
 
   if (error) {
     return (
-      <div className="text-destructive text-sm">
-        Failed to load SSH key: {(error as Error).message}
-      </div>
+      <Alert status="warning">
+        <Alert.Title>SSH Key Error</Alert.Title>
+        <Alert.Description>
+          Failed to load SSH key: {(error as Error).message}
+        </Alert.Description>
+      </Alert>
     );
   }
 
   if (!publicKey) {
     return (
-      <div className="text-muted-foreground text-sm">
-        No SSH key generated for this workspace yet.
+      <div className="flex flex-col items-center gap-4 py-6 border-2 border-border bg-card px-6 shadow-[3px_3px_0_0_#000]">
+        <KeyRound size={32} className="opacity-15" />
+        <div className="text-center">
+          <p className="text-sm font-head">No SSH key generated</p>
+          <p className="text-xs text-foreground/40 mt-1">
+            Generate an SSH key to let SuperPmAgent access your Git repos.
+          </p>
+        </div>
+        <Button
+          onClick={() => generateMutation.mutate()}
+          disabled={generateMutation.isPending}
+        >
+          <RefreshCw
+            size={14}
+            className={generateMutation.isPending ? "animate-spin" : ""}
+          />
+          {generateMutation.isPending ? "Generating..." : "Generate SSH Key"}
+        </Button>
+        {generateMutation.isError && (
+          <p className="text-xs text-destructive font-bold">
+            Failed to generate key: {(generateMutation.error as Error).message}
+          </p>
+        )}
       </div>
     );
   }
 
   return (
     <div className="space-y-3">
-      <p className="text-sm text-muted-foreground">
+      <p className="text-sm text-foreground/60">
         Add this public key to your Git hosting provider (GitHub, GitLab, etc.)
         to allow SuperPmAgent to access your repositories.
       </p>
       <div className="relative">
-        <textarea
+        <Textarea
           readOnly
           value={publicKey}
-          rows={4}
-          className="w-full rounded-md border border-border bg-muted/50 p-3 font-mono text-xs resize-none focus:outline-none"
+          rows={3}
+          className="font-mono text-xs resize-none pr-20"
         />
-        <button
-          onClick={handleCopy}
-          className="absolute top-2 right-2 px-3 py-1 text-xs rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-        >
+        <Button size="sm" onClick={handleCopy} className="absolute top-2 right-2">
+          <Copy size={12} />
           {copied ? "Copied!" : "Copy"}
-        </button>
+        </Button>
       </div>
     </div>
   );

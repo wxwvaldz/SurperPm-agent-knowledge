@@ -1,9 +1,11 @@
-"""Config tabs — integrations / profile / extensions / usage."""
+"""Config tabs — integrations / profile / extensions / usage / ai."""
+import json
 from pathlib import Path
 
 from fastapi import APIRouter, Depends
-from sqlmodel import select, func
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import func, select
 
 from app.config import settings
 from app.database import get_session
@@ -12,7 +14,9 @@ from app.routes.deps import require_auth
 
 router = APIRouter()
 
-KNOWLEDGE_ROOT = Path(settings.knowledge_repo_path) if settings.knowledge_repo_path else Path("knowledge")
+KNOWLEDGE_ROOT = (
+    Path(settings.knowledge_repo_path) if settings.knowledge_repo_path else Path("knowledge")
+)
 PLUGIN_ROOT = Path(settings.plugin_repo_path) if settings.plugin_repo_path else None
 
 
@@ -76,8 +80,62 @@ async def extensions(_user: dict = Depends(require_auth)) -> list:
                 if line.startswith("# "):
                     title = line[2:].strip()
                     break
-            result.append({"name": title, "category": category_dir.name, "path": str(category_dir.relative_to(PLUGIN_ROOT))})
+            result.append({
+                "name": title,
+                "category": category_dir.name,
+                "path": str(category_dir.relative_to(PLUGIN_ROOT)),
+            })
     return result
+
+
+AI_CONFIG_FILE = Path(__file__).resolve().parent.parent.parent / "ai_config.json"
+
+_AI_DEFAULTS = {"base_url": "", "api_key": "", "model": ""}
+
+
+def _read_ai_config() -> dict:
+    if AI_CONFIG_FILE.is_file():
+        try:
+            return {**_AI_DEFAULTS, **json.loads(AI_CONFIG_FILE.read_text("utf-8"))}
+        except (json.JSONDecodeError, OSError):
+            pass
+    return dict(_AI_DEFAULTS)
+
+
+def _write_ai_config(data: dict) -> None:
+    AI_CONFIG_FILE.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+
+
+class AIConfigPayload(BaseModel):
+    base_url: str | None = None
+    api_key: str | None = None
+    model: str | None = None
+
+
+@router.get("/ai")
+async def get_ai_config(_user: dict = Depends(require_auth)) -> dict:
+    cfg = _read_ai_config()
+    return {
+        "base_url": cfg.get("base_url", ""),
+        "api_key_masked": ("*" * 8 + cfg["api_key"][-4:]) if cfg.get("api_key") else "",
+        "api_key_set": bool(cfg.get("api_key")),
+        "model": cfg.get("model", ""),
+    }
+
+
+@router.patch("/ai")
+async def update_ai_config(
+    payload: AIConfigPayload, _user: dict = Depends(require_auth)
+) -> dict:
+    cfg = _read_ai_config()
+    if payload.base_url is not None:
+        cfg["base_url"] = payload.base_url
+    if payload.api_key is not None:
+        cfg["api_key"] = payload.api_key
+    if payload.model is not None:
+        cfg["model"] = payload.model
+    _write_ai_config(cfg)
+    return {"ok": True}
 
 
 @router.get("/usage")

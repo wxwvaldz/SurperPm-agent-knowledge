@@ -1,6 +1,6 @@
 """Secret table model."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlmodel import Field, SQLModel, UniqueConstraint
 
@@ -13,5 +13,5 @@ class Secret(SQLModel, table=True):
     workspace_id: str = Field(foreign_key="workspace.id", nullable=False)
     key: str = Field(nullable=False)
     value_enc: str = Field(nullable=False)
-    category: str = Field(default="env")  # env | mcp | ssh_path
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    category: str = Field(default="env")  # env | token | server | other
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

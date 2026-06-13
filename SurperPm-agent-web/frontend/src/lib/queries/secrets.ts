@@ -4,16 +4,15 @@ import { secretListSchema } from "../schemas/secret";
 import { parseWithFallback } from "../utils/parse-with-fallback";
 
 export const secretKeys = {
-  all: (slug: string) => ["secrets", slug] as const,
-  list: (slug: string) => [...secretKeys.all(slug), "list"] as const,
-  detail: (slug: string, id: number) => [...secretKeys.all(slug), id] as const,
+  all: () => ["secrets"] as const,
+  list: () => [...secretKeys.all(), "list"] as const,
 };
 
-export const secretListOptions = (workspaceSlug: string) =>
+export const secretListOptions = () =>
   queryOptions({
-    queryKey: secretKeys.list(workspaceSlug),
+    queryKey: secretKeys.list(),
     queryFn: async () => {
-      const res = await api.get(`/workspaces/${workspaceSlug}/secrets`);
+      const res = await api.get("/global-config/secrets");
       return parseWithFallback(secretListSchema, res, []);
     },
   });
