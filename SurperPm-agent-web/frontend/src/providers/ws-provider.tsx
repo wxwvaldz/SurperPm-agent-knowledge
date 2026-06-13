@@ -1,9 +1,11 @@
-import { createContext, useContext, useEffect, useRef } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { WSClient } from "../lib/ws-client";
 import { executionKeys } from "../lib/queries/executions";
 import { goalKeys } from "../lib/queries/goals";
 import { discussionKeys } from "../lib/queries/discussions";
+import { topicKeys } from "../lib/queries/topics";
+import { skillKeys } from "../lib/queries/skills";
 import { workspaceKeys } from "../lib/queries/workspaces";
 import { useExecutionStore } from "../lib/stores/execution";
 
@@ -20,49 +22,107 @@ interface WSProviderProps {
 
 export function WSProvider({ workspaceId, children }: WSProviderProps) {
   const queryClient = useQueryClient();
-  const wsRef = useRef<WSClient | null>(null);
+  const [wsClient, setWsClient] = useState<WSClient | null>(null);
 
   useEffect(() => {
     const ws = new WSClient(workspaceId);
-    wsRef.current = ws;
+    setWsClient(ws);
 
     ws.on("goal_created", () => {
-      queryClient.invalidateQueries({ queryKey: goalKeys.all(workspaceId) });
+      queryClient.invalidateQueries({ queryKey: goalKeys.all() });
     });
     ws.on("goal_updated", () => {
-      queryClient.invalidateQueries({ queryKey: goalKeys.all(workspaceId) });
-    });
-    ws.on("discussion_posted", () => {
-      queryClient.invalidateQueries({ queryKey: discussionKeys.all(workspaceId) });
+      queryClient.invalidateQueries({ queryKey: goalKeys.all() });
     });
     ws.on("discussion_created", () => {
-      queryClient.invalidateQueries({ queryKey: discussionKeys.all(workspaceId) });
+      queryClient.invalidateQueries({ queryKey: ["discussions"] });
     });
     ws.on("execution_started", () => {
-      queryClient.invalidateQueries({ queryKey: executionKeys.all(workspaceId) });
-      queryClient.invalidateQueries({ queryKey: goalKeys.all(workspaceId) });
+      queryClient.invalidateQueries({ queryKey: executionKeys.all() });
+      queryClient.invalidateQueries({ queryKey: goalKeys.all() });
     });
     ws.on("execution_progress", (data) => {
       useExecutionStore.getState().updateProgress(data as any);
     });
     ws.on("execution_completed", () => {
-      queryClient.invalidateQueries({ queryKey: executionKeys.all(workspaceId) });
-      queryClient.invalidateQueries({ queryKey: goalKeys.all(workspaceId) });
+      queryClient.invalidateQueries({ queryKey: executionKeys.all() });
+      queryClient.invalidateQueries({ queryKey: goalKeys.all() });
       useExecutionStore.getState().clearProgress();
     });
     ws.on("workspace_updated", () => {
       queryClient.invalidateQueries({ queryKey: workspaceKeys.all() });
     });
+    ws.on("topic_created", () => {
+      queryClient.invalidateQueries({ queryKey: ["topics"] });
+    });
+    ws.on("topic_updated", () => {
+      queryClient.invalidateQueries({ queryKey: ["topics"] });
+    });
     ws.on("knowledge_updated", () => {
       queryClient.invalidateQueries({ queryKey: ["knowledge-tree"] });
       queryClient.invalidateQueries({ queryKey: ["knowledge-content"] });
+    });
+    ws.on("skill_created", () => {
+      queryClient.invalidateQueries({ queryKey: skillKeys.all(workspaceId) });
+    });
+    ws.on("skill_updated", () => {
+      queryClient.invalidateQueries({ queryKey: skillKeys.all(workspaceId) });
+    });
+    ws.on("skill_deleted", () => {
+      queryClient.invalidateQueries({ queryKey: skillKeys.all(workspaceId) });
     });
 
     return () => ws.close();
   }, [workspaceId, queryClient]);
 
   return (
-    <WSContext.Provider value={wsRef.current}>
+    <WSContext.Provider value={wsClient}>
+      {children}
+    </WSContext.Provider>
+  );
+}
+
+interface GoalWSProviderProps {
+  goalId: number;
+  children: React.ReactNode;
+}
+
+export function GoalWSProvider({ goalId, children }: GoalWSProviderProps) {
+  const queryClient = useQueryClient();
+  const [wsClient, setWsClient] = useState<WSClient | null>(null);
+
+  useEffect(() => {
+    const ws = new WSClient(`goal:${goalId}`);
+    setWsClient(ws);
+
+    ws.on("goal_updated", () => {
+      queryClient.invalidateQueries({ queryKey: goalKeys.all() });
+    });
+    ws.on("discussion_created", () => {
+      queryClient.invalidateQueries({ queryKey: discussionKeys.all(goalId) });
+    });
+    ws.on("execution_started", () => {
+      queryClient.invalidateQueries({ queryKey: goalKeys.all() });
+    });
+    ws.on("execution_progress", (data) => {
+      useExecutionStore.getState().updateProgress(data as any);
+    });
+    ws.on("execution_completed", () => {
+      queryClient.invalidateQueries({ queryKey: goalKeys.all() });
+      useExecutionStore.getState().clearProgress();
+    });
+    ws.on("topic_created", () => {
+      queryClient.invalidateQueries({ queryKey: topicKeys.all(goalId) });
+    });
+    ws.on("topic_updated", () => {
+      queryClient.invalidateQueries({ queryKey: topicKeys.all(goalId) });
+    });
+
+    return () => ws.close();
+  }, [goalId, queryClient]);
+
+  return (
+    <WSContext.Provider value={wsClient}>
       {children}
     </WSContext.Provider>
   );

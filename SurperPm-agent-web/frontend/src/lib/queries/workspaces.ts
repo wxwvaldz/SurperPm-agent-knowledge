@@ -17,3 +17,14 @@ export const workspaceListOptions = () =>
       return parseWithFallback(workspaceListSchema, res, []);
     },
   });
+
+export const workspaceRepoKeys = {
+  all: (id: string) => [...workspaceKeys.detail(id), "repos"] as const,
+};
+
+export const workspaceReposOptions = (workspaceId: string) =>
+  queryOptions({
+    queryKey: workspaceRepoKeys.all(workspaceId),
+    queryFn: () => api.get<string[]>(`/workspaces/${workspaceId}/repos`),
+    enabled: !!workspaceId,
+  });

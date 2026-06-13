@@ -1,21 +1,23 @@
 """Knowledge — tree + file read/write + session chat.
 
-Reads from the claude-for-knowledge repo clone (KNOWLEDGE_REPO_PATH config).
+Reads from the SuperPmAgent-knowledge repo clone (KNOWLEDGE_REPO_PATH config).
 Falls back to ./knowledge/ relative to the backend working directory.
 """
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from app.config import settings
-from app.routes.deps import require_auth
+from app.routes.deps import require_auth, require_founder
 
 router = APIRouter()
 
-KNOWLEDGE_ROOT = Path(settings.knowledge_repo_path) if settings.knowledge_repo_path else Path("knowledge")
+KNOWLEDGE_ROOT = (
+    Path(settings.knowledge_repo_path) if settings.knowledge_repo_path else Path("knowledge")
+)
 
 
 def _ensure_root() -> Path:
@@ -58,8 +60,8 @@ class FilePayload(BaseModel):
 
 
 @router.put("/file")
-async def update_file(payload: FilePayload, _user: dict = Depends(require_auth)) -> dict:
-    """Write a file under knowledge/."""
+async def update_file(payload: FilePayload, _user: dict = Depends(require_founder)) -> dict:
+    """Write a file under knowledge/. Founder-only — the knowledge repo is a read-only mirror."""
     target = _resolve(payload.path)
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(payload.content, encoding="utf-8")
@@ -81,7 +83,7 @@ async def new_session(payload: NewSessionPayload, _user: dict = Depends(require_
     session_dir.mkdir(parents=True)
     (session_dir / "chat.jsonl").write_text("", encoding="utf-8")
     (session_dir / "notes.md").write_text(
-        f"# {payload.name}\n\n_Session created {datetime.now(timezone.utc).isoformat()}_\n",
+        f"# {payload.name}\n\n_Session created {datetime.now(UTC).isoformat()}_\n",
         encoding="utf-8",
     )
     exec_dir = session_dir / "executions"
@@ -107,7 +109,7 @@ async def session_chat(payload: ChatPayload, _user: dict = Depends(require_auth)
         raise HTTPException(404, f"Session not found: {payload.session}")
 
     chat_file = session_dir / "chat.jsonl"
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
 
     user_turn = json.dumps(
         {"role": "user", "content": payload.message, "ts": now},
@@ -125,6 +127,22 @@ async def session_chat(payload: ChatPayload, _user: dict = Depends(require_auth)
         f.write(reply_turn + "\n")
 
     return {"reply": reply_content}
+
+
+@router.post("/sync")
+async def sync_knowledge(_user: dict = Depends(require_auth)) -> dict:
+    """Trigger a git clone/pull of the knowledge repo."""
+    from app.services.knowledge_sync import ensure_knowledge_cloned
+
+    result = await ensure_knowledge_cloned()
+    if result:
+        return {"ok": True, "path": str(result)}
+    return {"ok": False, "message": "同步失败，请检查知识库配置或网络"}
+
+
+# Future extension point: a `POST /webhook` endpoint receiving GitHub push
+# events would call `ensure_knowledge_cloned()` for near-instant sync. The
+# current implementation relies on the lifespan polling loop in app/main.py.
 
 
 def _resolve(path: str) -> Path:

@@ -1,6 +1,7 @@
 """In-process async pub/sub event bus."""
 from collections import defaultdict
-from typing import Any, Awaitable, Callable
+from collections.abc import Awaitable, Callable
+from typing import Any
 
 EventHandler = Callable[[dict[str, Any]], Awaitable[None]]
 
@@ -10,16 +11,30 @@ EXECUTION_STARTED = "execution_started"
 EXECUTION_PROGRESS = "execution_progress"
 EXECUTION_COMPLETED = "execution_completed"
 DISCUSSION_CREATED = "discussion_created"
+DISCUSSION_DELTA = "discussion_delta"
 WORKSPACE_CREATED = "workspace_created"
 WORKSPACE_UPDATED = "workspace_updated"
 KNOWLEDGE_UPDATED = "knowledge_updated"
+TOPIC_CREATED = "topic_created"
+TOPIC_UPDATED = "topic_updated"
+
+SKILL_CREATED = "skill_created"
+SKILL_UPDATED = "skill_updated"
+SKILL_DELETED = "skill_deleted"
+
+MCP_SERVER_CREATED = "mcp_server_created"
+MCP_SERVER_UPDATED = "mcp_server_updated"
+MCP_SERVER_DELETED = "mcp_server_deleted"
 
 ALL_EVENTS = [
     GOAL_CREATED, GOAL_UPDATED,
     EXECUTION_STARTED, EXECUTION_PROGRESS, EXECUTION_COMPLETED,
-    DISCUSSION_CREATED,
+    DISCUSSION_CREATED, DISCUSSION_DELTA,
     WORKSPACE_CREATED, WORKSPACE_UPDATED,
     KNOWLEDGE_UPDATED,
+    TOPIC_CREATED, TOPIC_UPDATED,
+    SKILL_CREATED, SKILL_UPDATED, SKILL_DELETED,
+    MCP_SERVER_CREATED, MCP_SERVER_UPDATED, MCP_SERVER_DELETED,
 ]
 
 

@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     doubao_api_key: str = ""
     doubao_endpoint: str = "https://ark.cn-beijing.volces.com/api/v3"
 
-    agent_model: str = ""  # 模型，如 deepseek-v4-flash、claude-sonnet-4-20260613
+    agent_model: str = ""  # 模型，如 deepseek-v4-flash、claude-sonnet-4-20260614
 
     # LAP
     lap_url: str = ""
@@ -37,7 +37,7 @@ class Settings(BaseSettings):
     target_repo_path: str = ""  # path to target git repo for goal execution
 
     # Knowledge
-    knowledge_repo_path: str = ""  # path to claude-for-knowledge repo clone
+    knowledge_repo_path: str = ""  # path to SuperPmAgent-knowledge repo clone
 
     # Database
     database_url: str = "sqlite+aiosqlite:///./data/SuperPmAgent.db"

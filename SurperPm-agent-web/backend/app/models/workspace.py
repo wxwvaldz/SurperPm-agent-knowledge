@@ -1,7 +1,7 @@
 """Workspace table model."""
 
 import secrets
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlmodel import Field, SQLModel
 
@@ -16,7 +16,8 @@ class Workspace(SQLModel, table=True):
     repo_path: str | None = Field(default=None)
     knowledge_repo_url: str | None = Field(default=None)
     knowledge_repo_path: str | None = Field(default=None)
+    repos: str | None = Field(default=None)  # JSON array of repo URLs
     ssh_public_key: str | None = Field(default=None)
     ssh_private_key_enc: str | None = Field(default=None)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

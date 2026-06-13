@@ -9,10 +9,11 @@ function createApi() {
       ...(body ? { body: JSON.stringify(body) } : {}),
     });
     if (res.status === 401) {
+      const err = await res.json().catch(() => ({ detail: "unauthorized" }));
       if (!window.location.pathname.startsWith("/login")) {
         window.location.href = "/login";
       }
-      throw new Error("unauthorized");
+      throw new Error(err.detail ?? "unauthorized");
     }
     if (!res.ok) {
       const err = await res.json().catch(() => ({ detail: res.statusText }));

@@ -7,9 +7,12 @@ export class WSClient {
   private reconnectDelay = 1000;
   private url: string;
 
-  constructor(workspaceId: string) {
+  constructor(channelKey: string) {
     const base = import.meta.env.VITE_WS_URL ?? "ws://localhost:8000";
-    this.url = `${base}/ws/${workspaceId}`;
+    const path = channelKey.startsWith("goal:")
+      ? `/ws/goal/${channelKey.slice(5)}`
+      : `/ws/${channelKey}`;
+    this.url = `${base}${path}`;
     this.connect();
   }
 

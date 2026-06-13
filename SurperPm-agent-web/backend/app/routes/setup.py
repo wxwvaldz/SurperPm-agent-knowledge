@@ -41,6 +41,34 @@ async def ping() -> dict:
     return {"ok": True}
 
 
+@router.get("/init-state")
+async def init_state(
+    SuperPmAgent_session: Annotated[str | None, Cookie()] = None,
+) -> dict:
+    """Whether the system is initialized + whether the caller is the founder.
+
+    Drives login routing: once initialized, non-founders enter with just a token.
+    """
+    from app.database import async_session
+    from app.models.global_config import GlobalConfig
+
+    username = ""
+    if SuperPmAgent_session:
+        data = session_svc.decode(SuperPmAgent_session)
+        if data:
+            username = data.get("username", "")
+
+    async with async_session() as session:
+        cfg = await session.get(GlobalConfig, 1)
+        initialized = bool(cfg and cfg.knowledge_repo_url)
+        founder = cfg.founder_username if cfg else None
+
+    return {
+        "initialized": initialized,
+        "is_founder": bool(founder) and username == founder,
+    }
+
+
 # ── Team profile ──────────────────────────────────────────────
 
 
@@ -77,7 +105,8 @@ async def team_profile(
     members = members_res if isinstance(members_res, list) else []
     info = info_res if isinstance(info_res, dict) else {}
     description = info.get("description", "")
-    team_md_exists = team_md_res is not None
+    team_md = team_md_res if isinstance(team_md_res, str) else ""
+    team_md_exists = bool(team_md)
 
     total = sum(int(v) for v in languages.values()) if languages else 0
     total = total or 1
@@ -89,6 +118,7 @@ async def team_profile(
         "members": members[:10],
         "languages": lang_pct,
         "team_md_exists": team_md_exists,
+        "team_md": team_md,
     }
 
 

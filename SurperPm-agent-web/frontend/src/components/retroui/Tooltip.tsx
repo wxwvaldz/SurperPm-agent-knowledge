@@ -30,16 +30,18 @@ const TooltipTrigger = BaseTooltip.Trigger;
 
 const TooltipContent = ({ className, variant, ref, ...props }: React.ComponentPropsWithRef<typeof BaseTooltip.Popup> & VariantProps<typeof tooltipContentVariants>) => (
   <BaseTooltip.Portal>
-    <BaseTooltip.Popup
-      ref={ref}
-      className={cn(
-        tooltipContentVariants({
-          variant,
-          className,
-        }),
-      )}
-      {...props}
-    />
+    <BaseTooltip.Positioner>
+      <BaseTooltip.Popup
+        ref={ref}
+        className={cn(
+          tooltipContentVariants({
+            variant,
+            className,
+          }),
+        )}
+        {...props}
+      />
+    </BaseTooltip.Positioner>
   </BaseTooltip.Portal>
 );
 

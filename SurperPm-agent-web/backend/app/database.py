@@ -33,8 +33,20 @@ _MIGRATIONS: list[tuple[str, str, str]] = [
     ("execution", "token_budget", "INTEGER"),
     ("execution", "summary", "TEXT"),
     ("execution", "artifacts", "TEXT"),
+    ("execution", "logs", "JSON"),
     ("discussion", "author", "TEXT"),
     ("discussion", "parent_id", "INTEGER"),
+    ("discussion", "topic_id", "INTEGER"),
+    ("workspace", "repos", "TEXT"),
+    ("topic", "repo_url", "TEXT"),
+    ("goal", "slug", "TEXT"),
+    ("goal", "repo_url", "TEXT"),
+    ("goal", "repo_path", "TEXT"),
+    ("goal", "repos", "TEXT"),
+    ("global_config", "github_token_enc", "TEXT"),
+    ("global_config", "founder_username", "TEXT"),
+    ("goal", "reviewed_by", "TEXT"),
+    ("goal", "reviewed_at", "TEXT"),
 ]
 
 
@@ -50,10 +62,52 @@ async def _migrate_schema(conn) -> None:
             _logger.info("Migrated: ALTER TABLE %s ADD COLUMN %s %s", table, column, col_type)
 
 
+async def _seed_global_config(conn) -> None:
+    """Seed global_config singleton, copying data from the first workspace."""
+    result = await conn.execute(text("SELECT COUNT(*) FROM global_config"))
+    if result.scalar():
+        return
+
+    ws = await conn.execute(text(
+        "SELECT knowledge_repo_url, knowledge_repo_path, "
+        "ssh_public_key, ssh_private_key_enc FROM workspace LIMIT 1"
+    ))
+    row = ws.fetchone()
+
+    if row:
+        await conn.execute(text(
+            "INSERT INTO global_config (id, knowledge_repo_url, knowledge_repo_path, "
+            "ssh_public_key, ssh_private_key_enc, created_at, updated_at) "
+            "VALUES (1, :kru, :krp, :spk, :ske, datetime('now'), datetime('now'))"
+        ), {"kru": row[0], "krp": row[1], "spk": row[2], "ske": row[3]})
+    else:
+        await conn.execute(text(
+            "INSERT INTO global_config (id, created_at, updated_at) "
+            "VALUES (1, datetime('now'), datetime('now'))"
+        ))
+
+    _logger.info("Seeded global_config singleton row")
+
+
+async def _generate_goal_slugs(conn) -> None:
+    """Generate slugs for existing goals that don't have one."""
+    import re
+    result = await conn.execute(text("SELECT id, title FROM goal WHERE slug IS NULL"))
+    for row in result.fetchall():
+        slug = re.sub(r"[^a-z0-9]+", "-", row[1].lower()).strip("-")[:60] or f"goal-{row[0]}"
+        await conn.execute(
+            text("UPDATE goal SET slug = :slug WHERE id = :id"),
+            {"slug": slug, "id": row[0]},
+        )
+    _logger.info("Generated slugs for existing goals")
+
+
 async def create_db_and_tables():
     async with engine.begin() as conn:
         await conn.run_sync(SQLModel.metadata.create_all)
         await _migrate_schema(conn)
+        await _seed_global_config(conn)
+        await _generate_goal_slugs(conn)
 
 
 async def get_session():

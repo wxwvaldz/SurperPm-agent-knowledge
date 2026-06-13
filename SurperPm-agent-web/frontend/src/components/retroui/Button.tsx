@@ -37,23 +37,17 @@ export interface IButtonProps
   render?: React.ReactElement | ((props: Record<string, any>) => React.ReactElement);
 }
 
-export const Button = ({
-  children,
-  size = "md",
-  className = "",
-  variant = "default",
-  render,
-  ref,
-  ...props
-}: IButtonProps & { ref?: React.Ref<HTMLButtonElement> }) => {
-  return (
-    <BaseButton
-      ref={ref}
-      className={cn(buttonVariants({ variant, size }), className)}
-      render={render}
-      {...props}
-    >
-      {children}
-    </BaseButton>
-  );
-};
+export const Button = React.forwardRef<HTMLButtonElement, IButtonProps>(
+  ({ children, size = "md", className = "", variant = "default", render, ...props }, ref) => {
+    return (
+      <BaseButton
+        ref={ref}
+        className={cn(buttonVariants({ variant, size }), className)}
+        render={render}
+        {...props}
+      >
+        {children}
+      </BaseButton>
+    );
+  },
+);
