@@ -32,6 +32,7 @@ pnpm-debug.log*
 
 # Config (contains secrets — never commit)
 .env
+.env.example
 .env.local
 .env.*.local
 ai_config.json
