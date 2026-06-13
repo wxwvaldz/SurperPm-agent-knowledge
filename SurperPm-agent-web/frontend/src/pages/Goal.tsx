@@ -48,7 +48,7 @@ function GoalContent() {
       </div>
 
       {isSubmitOpen && <SubmitDrawer />}
-      {selectedRun && <RunDetailDrawer run={selectedRun} />}
+      {selectedRun && <RunDetailDrawer />}
     </div>
   )
 }
