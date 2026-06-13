@@ -10,12 +10,12 @@ from app.routes import config as config_routes
 from app.routes import goal as goal_routes
 from app.routes import knowledge as knowledge_routes
 from app.routes import setup as setup_routes
-from app.services.goal_runner import GoalRunnerService
+from app.services import goal_runner
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    app.state.goal_runner = GoalRunnerService()
+    app.state.goal_runner = goal_runner
     yield
 
 

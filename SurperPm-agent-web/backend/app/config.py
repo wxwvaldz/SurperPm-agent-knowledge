@@ -11,8 +11,11 @@ class Settings(BaseSettings):
 
     # Anthropic / 豆包
     anthropic_api_key: str = ""
+    anthropic_base_url: str = ""  # 代理地址，如 https://api.deepseek.com/anthropic
     doubao_api_key: str = ""
     doubao_endpoint: str = "https://ark.cn-beijing.volces.com/api/v3"
+
+    agent_model: str = ""  # 模型，如 deepseek-v4-flash、claude-sonnet-4-20260613
 
     # LAP
     lap_url: str = ""
