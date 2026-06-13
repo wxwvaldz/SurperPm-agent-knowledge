@@ -9,8 +9,8 @@ argument-hint: "session name plus destination details or generated Feishu docume
 Turn a clarified SuperPmAgent session into a Feishu PRD artifact record.
 
 This skill is a post-clarification delivery step. It does not replace the
-session. It publishes a document-shaped output and records that output back
-into the same session.
+session. It publishes a derived document-shaped artifact and records that
+output back into the same session.
 
 ## Use When
 
@@ -38,6 +38,10 @@ Read from the session in this order:
 
 The exported PRD must reflect the session, not override it.
 
+Like `output/export-ppt`, this skill produces a derived artifact. It cannot
+replace `notes.md`, and `/goal` must still consume the session rather than the
+Feishu PRD link.
+
 ## Output Goal
 
 Produce and register a normalized output record that follows
@@ -47,6 +51,7 @@ the session I/O protocol document in this repo.
 
 ```json
 {
+  "record_type": "derived_output",
   "output_type": "feishu_prd",
   "title": "PRD: phone field",
   "artifact_uri": "https://example.com/doc",
@@ -55,7 +60,15 @@ the session I/O protocol document in this repo.
     "notes.md",
     "decisions.md"
   ],
-  "generated_at": "2026-06-13T12:00:00Z"
+  "summary": "Derived Feishu PRD artifact for stakeholder review.",
+  "risks": [
+    "Feishu document formatting may evolve outside the session."
+  ],
+  "provider_metadata": {
+    "provider": "feishu",
+    "artifact_kind": "prd_doc"
+  },
+  "generated_at": "2026-06-13Z"
 }
 ```
 
@@ -81,6 +94,8 @@ When using this skill:
    auditability or working agreement.
 5. If the exported PRD introduces a new PM-confirmed boundary, record that in
    `decisions.md`.
+6. Keep the Feishu PRD positioned as a derived artifact, not a source-of-truth
+   replacement for the session.
 
 ## Suggested PRD Mapping
 
