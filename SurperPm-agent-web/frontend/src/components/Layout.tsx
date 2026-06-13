@@ -1,4 +1,5 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { useAuth } from '@/context/AuthContext'
 
 const navItems = [
   { to: '/setup', label: 'Setup' },
@@ -7,15 +8,14 @@ const navItems = [
   { to: '/goal', label: 'Goal' },
 ]
 
-// W1 末 mock — real auth state from /api/auth/me in W2
-const MOCK_USER = { username: 'xinhai', repo: 'SuperPmAgent-team/cl4p' }
-
 export default function Layout() {
   const navigate = useNavigate()
-  const user = MOCK_USER
+  const { user, logout: doLogout } = useAuth()
 
-  const logout = () => {
-    // POST /api/auth/logout in W2
+  if (!user) return null
+
+  const logout = async () => {
+    await doLogout()
     navigate('/login')
   }
 

@@ -5,6 +5,8 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import '@fontsource/archivo-black/400.css'
 import '@fontsource-variable/space-grotesk'
 
+import { AuthProvider } from './context/AuthContext'
+import ProtectedRoute from './components/ProtectedRoute'
 import Layout from './components/Layout'
 import Config from './pages/Config'
 import Goal from './pages/Goal'
@@ -16,17 +18,21 @@ import './index.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <BrowserRouter>
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route element={<Layout />}>
-          <Route path="/" element={<Navigate to="/goal" replace />} />
-          <Route path="/setup" element={<Setup />} />
-          <Route path="/config" element={<Config />} />
-          <Route path="/knowledge" element={<Knowledge />} />
-          <Route path="/goal" element={<Goal />} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route element={<ProtectedRoute />}>
+            <Route element={<Layout />}>
+              <Route path="/" element={<Navigate to="/goal" replace />} />
+              <Route path="/setup" element={<Setup />} />
+              <Route path="/config" element={<Config />} />
+              <Route path="/knowledge" element={<Knowledge />} />
+              <Route path="/goal" element={<Goal />} />
+            </Route>
+          </Route>
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   </React.StrictMode>,
 )

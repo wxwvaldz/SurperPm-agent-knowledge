@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { api } from '@/api/client'
+import { useAuth } from '@/context/AuthContext'
 
 export default function Login() {
   const [pat, setPat] = useState('')
@@ -7,26 +9,17 @@ export default function Login() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
+  const { refresh } = useAuth()
 
   const handleLogin = async () => {
     setError('')
     setLoading(true)
     try {
-      // W1 末 mock — real call goes via api.auth.login in W2
-      // const r = await fetch('/api/auth/login', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({ pat, repo }),
-      //   credentials: 'include',
-      // })
-      // if (!r.ok) throw new Error(await r.text())
-      // const { profile_missing } = await r.json()
-      // navigate(profile_missing ? '/setup' : '/goal')
-
-      await new Promise((r) => setTimeout(r, 400))
-      navigate('/setup')
+      const { profile_missing } = await api.auth.login(pat, repo)
+      refresh()
+      navigate(profile_missing ? '/setup' : '/goal')
     } catch {
-      setError('登录失败,检查 PAT 和仓库地址')
+      setError('登录失败，检查 PAT 和仓库地址')
     } finally {
       setLoading(false)
     }
