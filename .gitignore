@@ -1,0 +1,74 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node
+node_modules/
+dist/
+build/
+.vite/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Config (contains secrets — never commit)
+.env
+.env.local
+.env.*.local
+ai_config.json
+backend/ai_config.json
+config.json
+backend/config.json
+
+# Build artifacts
+*.tsbuildinfo
+.next/
+out/
+
+# Database
+*.db
+backend/data/
+
+# Goal workdir clones
+data/repos/
+
+# Knowledge repo clone
+knowledge/
+backend/knowledge/
+
+# Misc
+*.bak
+*.tmp
+.cache/
+coverage/
+
+# Claude Code runtime artifacts
+.claude/settings.local.json
+.claude.json
+sessions/
+shell-snapshots/
+backups/
+projects/
+telemetry/
+.logs/
+.last-cleanup
+.playwright-mcp
