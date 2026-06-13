@@ -1,12 +1,16 @@
 """V2 Goals API — workspace-scoped CRUD + execution trigger."""
+import asyncio
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from app.database import get_session
+from app.routes.deps import require_auth
 from app.models.goal import Goal
-from app.services.event_bus import bus
+from app.services.event_bus import bus, GOAL_CREATED, GOAL_UPDATED
+from app.services.goal_executor import execute_goal as _execute_goal_bg
 
 router = APIRouter()
 
@@ -22,6 +26,10 @@ class GoalUpdate(BaseModel):
     description: str | None = None
     status: str | None = None
     priority: int | None = None
+    assigned_to: str | None = None
+    suggested_assignee: str | None = None
+    parent_goal_id: int | None = None
+    token_budget: int | None = None
 
 
 @router.get("")
@@ -29,6 +37,7 @@ async def list_goals(
     workspace_id: str,
     status: str | None = None,
     session: AsyncSession = Depends(get_session),
+    _user: dict = Depends(require_auth),
 ):
     stmt = select(Goal).where(Goal.workspace_id == workspace_id)
     if status:
@@ -43,6 +52,7 @@ async def create_goal(
     workspace_id: str,
     body: GoalCreate,
     session: AsyncSession = Depends(get_session),
+    _user: dict = Depends(require_auth),
 ):
     goal = Goal(
         workspace_id=workspace_id,
@@ -53,7 +63,7 @@ async def create_goal(
     session.add(goal)
     await session.commit()
     await session.refresh(goal)
-    await bus.emit("goal_created", {
+    await bus.emit(GOAL_CREATED, {
         "goal_id": goal.id,
         "workspace_id": workspace_id,
         "title": goal.title,
@@ -66,6 +76,7 @@ async def get_goal(
     workspace_id: str,
     goal_id: int,
     session: AsyncSession = Depends(get_session),
+    _user: dict = Depends(require_auth),
 ):
     stmt = select(Goal).where(Goal.id == goal_id, Goal.workspace_id == workspace_id)
     result = await session.execute(stmt)
@@ -81,6 +92,7 @@ async def update_goal(
     goal_id: int,
     body: GoalUpdate,
     session: AsyncSession = Depends(get_session),
+    _user: dict = Depends(require_auth),
 ):
     stmt = select(Goal).where(Goal.id == goal_id, Goal.workspace_id == workspace_id)
     result = await session.execute(stmt)
@@ -93,7 +105,7 @@ async def update_goal(
     session.add(goal)
     await session.commit()
     await session.refresh(goal)
-    await bus.emit("goal_updated", {
+    await bus.emit(GOAL_UPDATED, {
         "goal_id": goal.id,
         "workspace_id": workspace_id,
         "status": goal.status,
@@ -106,6 +118,7 @@ async def delete_goal(
     workspace_id: str,
     goal_id: int,
     session: AsyncSession = Depends(get_session),
+    _user: dict = Depends(require_auth),
 ):
     stmt = select(Goal).where(Goal.id == goal_id, Goal.workspace_id == workspace_id)
     result = await session.execute(stmt)
@@ -121,6 +134,7 @@ async def execute_goal(
     workspace_id: str,
     goal_id: int,
     session: AsyncSession = Depends(get_session),
+    _user: dict = Depends(require_auth),
 ):
     """Trigger agent execution for a goal. Returns immediately (async)."""
     stmt = select(Goal).where(Goal.id == goal_id, Goal.workspace_id == workspace_id)
@@ -137,12 +151,11 @@ async def execute_goal(
     await session.commit()
     await session.refresh(goal)
 
-    await bus.emit("goal_updated", {
+    await bus.emit(GOAL_UPDATED, {
         "goal_id": goal.id,
         "workspace_id": workspace_id,
         "status": "doing",
     })
 
-    # TODO: Phase 3 wire-up — actually trigger goal_runner_v2 here
-    # For now, just return accepted status
+    asyncio.create_task(_execute_goal_bg(workspace_id, goal.id))
     return {"goal_id": goal.id, "status": "doing", "message": "Execution queued"}
