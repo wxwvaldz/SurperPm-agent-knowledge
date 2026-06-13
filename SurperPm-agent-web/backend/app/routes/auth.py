@@ -25,7 +25,7 @@ COOKIE_NAME = "SuperPmAgent_session"
 COOKIE_MAX_AGE = 7 * 24 * 3600  # 7 days
 OAUTH_STATE_COOKIE = "SuperPmAgent_oauth_state"
 OAUTH_STATE_MAX_AGE = 600  # 10 minutes
-FRONTEND_URL = "http://localhost:5173"
+FRONTEND_URL = settings.frontend_url
 
 
 def _post_with_retry(url: str, json: dict, max_retries: int = 3) -> requests.Response | None:
@@ -51,15 +51,39 @@ def _post_with_retry(url: str, json: dict, max_retries: int = 3) -> requests.Res
 # ============================================================
 
 
+@router.post("/pat/repos")
+async def pat_repos(payload: dict) -> dict:
+    """Validate a PAT and return the user info + accessible repos (no session set)."""
+    pat = payload.get("pat", "").strip()
+    if not pat:
+        raise HTTPException(status_code=400, detail="pat required")
+
+    try:
+        user_info = github_client.get_user_info(pat)
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid PAT or GitHub unreachable")
+
+    try:
+        repos = github_client.list_user_repos(pat)
+    except Exception:
+        repos = []
+
+    return {
+        "username": user_info["username"],
+        "avatar_url": user_info.get("avatar_url", ""),
+        "repos": repos,
+    }
+
+
 @router.post("/login")
 async def login(payload: dict, response: Response) -> dict:
     """Validate (pat, repo) by calling GitHub. On success, set session cookie."""
     pat = payload.get("pat", "").strip()
     repo = payload.get("repo", "").strip()
     anthropic_key = payload.get("anthropic_key", "").strip()
-    if not pat or not repo or not anthropic_key:
+    if not pat or not repo:
         raise HTTPException(
-            status_code=400, detail="pat, repo, and anthropic_key required"
+            status_code=400, detail="pat and repo required"
         )
 
     r = requests.get(
@@ -77,9 +101,14 @@ async def login(payload: dict, response: Response) -> dict:
             detail="Invalid PAT or no access to that repo",
         )
 
-    repo_data = r.json()
-    username = repo_data.get("owner", {}).get("login", "unknown")
-    avatar_url = repo_data.get("owner", {}).get("avatar_url", "")
+    # Get the authenticated user's info (not repo owner)
+    try:
+        user_info = github_client.get_user_info(pat)
+        username = user_info["username"]
+        avatar_url = user_info.get("avatar_url", "")
+    except Exception:
+        username = "unknown"
+        avatar_url = ""
     cookie_value = session_svc.encode(
         {
             "github_token": pat,
@@ -97,7 +126,7 @@ async def login(payload: dict, response: Response) -> dict:
         max_age=COOKIE_MAX_AGE,
     )
 
-    return {"ok": True, "username": username, "repo": repo, "profile_missing": True}
+    return {"ok": True, "username": username, "repo": repo, "profile_missing": not username}
 
 
 @router.post("/logout")
@@ -188,7 +217,7 @@ async def github_callback(
         return _oauth_html_redirect("access_denied")
 
     if not SuperPmAgent_oauth_state or SuperPmAgent_oauth_state != state:
-        raise HTTPException(status_code=403, detail="Invalid state parameter")
+        return _oauth_html_redirect("state_invalid")
 
     # Exchange code for access token (with retry for flaky proxy SSL)
     token_resp = _post_with_retry(
@@ -307,4 +336,4 @@ async def github_complete(
         max_age=COOKIE_MAX_AGE,
     )
 
-    return {"ok": True, "username": username, "repo": repo, "profile_missing": True}
+    return {"ok": True, "username": username, "repo": repo, "profile_missing": not username}

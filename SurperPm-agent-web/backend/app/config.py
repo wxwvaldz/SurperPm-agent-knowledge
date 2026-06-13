@@ -33,14 +33,20 @@ class Settings(BaseSettings):
     repo_local_path: str = ""
 
     # Goal runner
-    plugin_repo_path: str = ""  # path to claude-for-SuperPmAgent/SuperPmAgent-core
+    plugin_repo_path: str = ""  # path to SuperPmAgent-plugins repo clone
     target_repo_path: str = ""  # path to target git repo for goal execution
+
+    # Knowledge
+    knowledge_repo_path: str = ""  # path to claude-for-knowledge repo clone
 
     # Database
     database_url: str = "sqlite+aiosqlite:///./data/SuperPmAgent.db"
 
     # Encryption key for secrets (Fernet)
     secret_key: str = ""
+
+    # Frontend URL (for OAuth redirects)
+    frontend_url: str = "http://localhost:5173"
 
 
 settings = Settings()
