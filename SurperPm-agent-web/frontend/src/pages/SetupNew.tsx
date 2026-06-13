@@ -108,8 +108,9 @@ export default function SetupNew() {
     )
   }
 
-  // If profile already completed or user just finished, show profile view
-  if ((profileCompleted && phase === 'overview') || phase === 'profile') {
+  // Only auto-show profile if completed AND has real answers (not just auto-detected languages)
+  const hasProfile = profileCompleted && Object.keys(answers).length > 1
+  if ((hasProfile && phase === 'overview') || phase === 'profile') {
     return <ProfileView answers={answers} setAnswers={setAnswers} />
   }
 
@@ -434,10 +435,20 @@ function MultiSelect({ q, answers, setAnswers, autoLang }: {
 function DonePhase({ answers, autoLang, onGoProfile }: {
   answers: Answers; autoLang: Record<string, number>; onGoProfile: () => void
 }) {
-  const handleSave = () => {
-    // TODO: 暂时注释掉上传到 GitHub 的功能，直接进入画像展示
-    _stateCache = { completed: true, auto_detected_languages: autoLang, answers: answers as Record<string, unknown> }
-    onGoProfile()
+  const [saving, setDoneSaving] = useState(false)
+
+  const handleSave = async () => {
+    setDoneSaving(true)
+    try {
+      await api.setup.finish({ answers: answers as Record<string, unknown>, auto_detected_languages: autoLang })
+      _stateCache = { completed: true, auto_detected_languages: autoLang, answers: answers as Record<string, unknown> }
+    } catch (e) {
+      // Still allow viewing profile even if save fails
+      console.error('Failed to save profile:', e)
+    } finally {
+      setDoneSaving(false)
+      onGoProfile()
+    }
   }
 
   return (
@@ -492,7 +503,9 @@ function DonePhase({ answers, autoLang, onGoProfile }: {
         })}
       </div>
 
-      <Button onClick={handleSave}>查看我的画像 →</Button>
+      <Button onClick={handleSave} disabled={saving}>
+        {saving ? '保存中...' : '查看我的画像 →'}
+      </Button>
     </div>
   )
 }
