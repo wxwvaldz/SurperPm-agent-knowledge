@@ -6,6 +6,8 @@ export const discussionSchema = z.object({
   goal_id: z.number().nullable(),
   role: z.enum(["user", "agent", "system"]),
   content: z.string(),
+  author: z.string().nullable().optional(),
+  parent_id: z.number().nullable().optional(),
   created_at: z.string(),
 });
 
