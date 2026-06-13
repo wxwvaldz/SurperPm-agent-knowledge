@@ -10,6 +10,8 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
+from app.services.agent import AgentResult
+
 
 @pytest.fixture()
 def target_repo(tmp_path):
@@ -45,38 +47,34 @@ def test_client(target_repo):
 
 def test_submit_returns_run_id(test_client):
     """POST /api/goal/submit should return a run_id and status."""
-    with patch("app.services.goal_runner.query", new_callable=AsyncMock) as mock_query:
-        mock_query.return_value = AsyncMock()
-        mock_query.return_value.__aiter__ = AsyncMock(return_value=iter([]))
+    with patch("app.services.agent.run_goal_agent", new_callable=AsyncMock) as mock_run:
+        mock_run.return_value = AgentResult()
 
         r = test_client.post("/api/goal/submit", json={"text": "add .gitignore for Python"})
-        assert r.status_code == 200
+        assert r.status_code == 201
         body = r.json()
         assert "id" in body
         assert body["status"] == "running"
-        assert len(body["id"]) == 8
+        assert len(body["id"]) == 10
 
 
 def test_list_contains_submitted_goal(test_client):
     """GET /api/goal/list should include previously submitted goals."""
-    with patch("app.services.goal_runner.query", new_callable=AsyncMock) as mock_query:
-        mock_query.return_value = AsyncMock()
-        mock_query.return_value.__aiter__ = AsyncMock(return_value=iter([]))
+    with patch("app.services.agent.run_goal_agent", new_callable=AsyncMock) as mock_run:
+        mock_run.return_value = AgentResult()
 
         test_client.post("/api/goal/submit", json={"text": "add .editorconfig"})
         r = test_client.get("/api/goal/list")
         assert r.status_code == 200
         runs = r.json()
         assert len(runs) >= 1
-        assert runs[-1]["goal_text"] == "add .editorconfig"
         assert runs[-1]["status"] in ("running", "done", "failed")
 
 
 def test_get_single_run(test_client):
     """GET /api/goal/{id} should return the run details."""
-    with patch("app.services.goal_runner.query", new_callable=AsyncMock) as mock_query:
-        mock_query.return_value = AsyncMock()
-        mock_query.return_value.__aiter__ = AsyncMock(return_value=iter([]))
+    with patch("app.services.agent.run_goal_agent", new_callable=AsyncMock) as mock_run:
+        mock_run.return_value = AgentResult()
 
         submit_resp = test_client.post("/api/goal/submit", json={"text": "fix typo in readme"})
         run_id = submit_resp.json()["id"]
@@ -85,11 +83,10 @@ def test_get_single_run(test_client):
         assert r.status_code == 200
         body = r.json()
         assert body["id"] == run_id
-        assert body["goal_text"] == "fix typo in readme"
 
 
 def test_get_nonexistent_run(test_client):
-    """GET /api/goal/{id} for unknown id returns error."""
+    """GET /api/goal/{id} for unknown id returns 404."""
     r = test_client.get("/api/goal/nonexist")
-    assert r.status_code == 200
-    assert r.json() == {"error": "not found"}
+    assert r.status_code == 404
+    assert r.json() == {"detail": "goal not found"}

@@ -9,7 +9,11 @@ async def chat_query_sync(
     plugin_repo_path: str,
     target_repo_path: str,
 ) -> dict:
-    plugin_path = plugin_repo_path.replace("SuperPmAgent-core", plugin) if plugin != "SuperPmAgent-core" else plugin_repo_path
+    plugin_path = (
+        plugin_repo_path.replace("SuperPmAgent-core", plugin)
+        if plugin != "SuperPmAgent-core"
+        else plugin_repo_path
+    )
     options = ClaudeAgentOptions(
         plugins=[{"type": "local", "path": plugin_path}],
         allowed_tools=["Read", "Edit", "Write", "Bash", "Grep", "Glob"],
