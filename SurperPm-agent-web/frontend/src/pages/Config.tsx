@@ -1,134 +1,157 @@
 import { useState } from 'react'
+import { Button } from '@/components/retroui/Button'
+import { Card } from '@/components/retroui/Card'
+import { Text } from '@/components/retroui/Text'
 
-const TABS = ['系统集成', '团队画像', '扩展提示词', '用量']
+const ITEMS = [
+  { name: 'GitHub PAT', endpoint: 'https://api.github.com', key: '••••••••', connected: true },
+  { name: '模型 endpoint', endpoint: 'https://api.anthropic.com', key: '', connected: false },
+  { name: 'LAP', endpoint: '', key: '', connected: false },
+]
 
 export default function Config() {
-  const [tab, setTab] = useState(0)
+  const [tab, setTab] = useState<'integrations' | 'usage'>('integrations')
 
   return (
-    <div className="max-w-5xl mx-auto p-8">
-      <h1 className="text-2xl font-bold mb-6">系统配置</h1>
+    <div className="w-full max-w-5xl mx-auto p-4 sm:p-8">
+      <Text as="h2" className="mb-6">系统配置</Text>
 
-      <div className="flex border-b mb-6">
-        {TABS.map((label, i) => (
-          <button
-            key={label}
-            onClick={() => setTab(i)}
-            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
-              tab === i
-                ? 'border-gray-900 text-gray-900'
-                : 'border-transparent text-gray-500 hover:text-gray-900'
-            }`}
-          >
-            {label}
-          </button>
-        ))}
+      {/* Tab bar */}
+      <div className="flex gap-1 mb-6">
+        <button
+          onClick={() => setTab('integrations')}
+          className={`px-4 py-2 text-sm font-medium border-2 cursor-pointer transition-colors ${
+            tab === 'integrations'
+              ? 'bg-foreground text-background border-foreground'
+              : 'border-transparent text-muted-foreground hover:bg-accent'
+          }`}
+        >
+          集成
+        </button>
+        <button
+          onClick={() => setTab('usage')}
+          className={`px-4 py-2 text-sm font-medium border-2 cursor-pointer transition-colors ${
+            tab === 'usage'
+              ? 'bg-foreground text-background border-foreground'
+              : 'border-transparent text-muted-foreground hover:bg-accent'
+          }`}
+        >
+          用量
+        </button>
       </div>
 
-      <div className="bg-white border rounded-lg p-6 min-h-[400px]">
-        {tab === 0 && <IntegrationsTab />}
-        {tab === 1 && <ProfileTab />}
-        {tab === 2 && <ExtensionsTab />}
-        {tab === 3 && <UsageTab />}
-      </div>
+      {/* Content wrapper card */}
+      <Card className="block w-full">
+        <Card.Content className="p-6">
+          {tab === 'integrations' ? <IntegrationsTab /> : <UsageTab />}
+        </Card.Content>
+      </Card>
     </div>
   )
 }
 
 function IntegrationsTab() {
-  const items = [
-    { name: 'GitHub', status: '✓ 已连接', color: 'text-green-600' },
-    { name: 'Anthropic', status: '✓ 已连接', color: 'text-green-600' },
-    { name: '豆包', status: '✗ Key 失效', color: 'text-red-600' },
-    { name: 'LAP', status: '⚪ 未配置', color: 'text-gray-500' },
-  ]
-  return (
-    <div className="space-y-3">
-      {items.map((it) => (
-        <div key={it.name} className="flex items-center justify-between border-b py-3">
-          <div className="font-medium">{it.name}</div>
-          <div className={`text-sm ${it.color}`}>{it.status}</div>
-          <button className="text-sm text-blue-600 hover:underline">编辑</button>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-function ProfileTab() {
   return (
     <div>
-      <p className="text-sm text-gray-600 mb-4">
-        编辑 <code className="bg-gray-100 px-1 rounded">knowledge/profiles/team.md</code>。保存即 commit 到 fork。
+      <p className="text-sm text-muted-foreground mb-6">
+        所有 endpoint + key。条目跟随仓库的{' '}
+        <code className="px-1.5 py-0.5 text-xs underline decoration-[#8B5CF6] decoration-2 underline-offset-4">
+          .SuperPmAgent.toml
+        </code>{' '}
+        模板配置。模型 endpoint 不绑定具体厂商。
       </p>
-      <textarea
-        className="w-full font-mono text-sm border rounded p-3"
-        rows={20}
-        defaultValue={'# Team Profile\n\n## Team\n- Name: ...\n\n## Tech stack\n- ...'}
-      />
-      <button className="mt-4 px-4 py-2 bg-gray-900 text-white rounded text-sm font-medium">
-        💾 保存（commit）
-      </button>
-    </div>
-  )
-}
 
-function ExtensionsTab() {
-  const exts = [
-    { target: 'skill:coding', tags: ['tdd', 'testing'], priority: 'high' },
-    { target: 'skill:submit-pr', tags: ['conventional-commits'], priority: 'medium' },
-  ]
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-4">
-        <p className="text-sm text-gray-600">
-          扩展提示词（hook 注入）。新增后通过 haiku 微决策智能筛选生效。
-        </p>
-        <button className="px-3 py-1.5 bg-gray-900 text-white rounded text-sm">+ 新建</button>
-      </div>
-      <table className="w-full text-sm">
-        <thead className="text-xs text-gray-500 border-b">
-          <tr>
-            <th className="text-left py-2">Target</th>
-            <th className="text-left py-2">Tags</th>
-            <th className="text-left py-2">Priority</th>
-            <th className="text-right py-2">操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          {exts.map((e) => (
-            <tr key={e.target} className="border-b">
-              <td className="py-3 font-mono">{e.target}</td>
-              <td className="py-3">{e.tags.join(', ')}</td>
-              <td className="py-3">{e.priority}</td>
-              <td className="py-3 text-right">
-                <button className="text-blue-600 hover:underline mr-3">编辑</button>
-                <button className="text-red-600 hover:underline">删除</button>
-              </td>
+      {/* Table */}
+      <div className="border-2 border-foreground shadow-[4px_4px_0_0_var(--border)] bg-white mb-6">
+        <table className="w-full">
+          <thead>
+            <tr className="bg-primary border-b-2 border-foreground">
+              <th className="text-left px-5 py-3 text-sm font-head">服务</th>
+              <th className="text-left px-5 py-3 text-sm font-head">Endpoint</th>
+              <th className="text-left px-5 py-3 text-sm font-head">Key</th>
+              <th className="text-center px-5 py-3 text-sm font-head">状态</th>
+              <th className="px-5 py-3 text-sm font-head">
+                <div className="flex justify-end">操作</div>
+              </th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {ITEMS.map((it) => (
+              <tr
+                key={it.name}
+                className={`border-b border-gray-100 hover:bg-primary/30 transition-colors ${
+                  !it.connected ? 'bg-gray-50' : ''
+                }`}
+              >
+                <td className="px-5 py-4 font-medium text-sm">{it.name}</td>
+                <td className={`px-5 py-4 font-mono text-xs ${it.connected ? 'text-muted-foreground' : 'text-gray-400'}`}>
+                  {it.endpoint || <span className="text-gray-400">(未配置)</span>}
+                </td>
+                <td className={`px-5 py-4 font-mono text-xs ${it.connected ? 'text-muted-foreground' : 'text-gray-400'}`}>
+                  {it.key || <span className="text-gray-400">(未配置)</span>}
+                </td>
+                <td className="px-5 py-4 text-center">
+                  {it.connected ? (
+                    <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <span className="text-green-500">●</span> 已连接
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 text-xs text-gray-400">
+                      ○ 未配置
+                    </span>
+                  )}
+                </td>
+                <td className="px-5 py-4">
+                  <div className="flex justify-end">
+                    <Button variant="outline" size="sm">编辑</Button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <Button className="font-head">＋ 新增服务</Button>
     </div>
   )
 }
 
 function UsageTab() {
-  return (
-    <div className="space-y-4">
-      <Stat label="本月 Anthropic Token" value="1,240,000" />
-      <Stat label="本月豆包 Token" value="320,000" />
-      <Stat label="活跃 Goal" value="3" />
-      <Stat label="蒸馏 PR（待审）" value="2" />
-    </div>
-  )
-}
+  const stats = [
+    { label: '模型 Token (in)', value: '1,240,000' },
+    { label: '模型 Token (out)', value: '320,000' },
+    { label: '活跃 Goal', value: '3' },
+    { label: '蒸馏 PR (待审)', value: '2' },
+  ]
 
-function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="border rounded p-4 flex items-center justify-between">
-      <span className="text-sm text-gray-600">{label}</span>
-      <span className="text-xl font-bold tabular-nums">{value}</span>
+    <div>
+      <p className="text-sm text-muted-foreground mb-6">
+        本月用量。占位数据，真实数据 W2 接通后展示。
+      </p>
+
+      <div className="grid grid-cols-2 gap-4 mb-6">
+        {stats.map((s) => (
+          <div key={s.label} className="border-2 border-foreground shadow-[4px_4px_0_0_var(--border)] bg-white">
+            <div className="bg-primary border-b-2 border-foreground px-5 py-2">
+              <span className="text-sm font-head">{s.label}</span>
+            </div>
+            <div className="px-5 py-4">
+              <span className="text-2xl font-head tabular-nums">{s.value}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="border-2 border-foreground shadow-[4px_4px_0_0_var(--border)] bg-white">
+        <div className="bg-primary border-b-2 border-foreground px-5 py-2">
+          <span className="text-sm font-head">本月趋势</span>
+        </div>
+        <div className="px-5 py-10 text-center">
+          <p className="text-sm text-muted-foreground">图表区域 — W2 接通后展示</p>
+        </div>
+      </div>
     </div>
   )
 }
