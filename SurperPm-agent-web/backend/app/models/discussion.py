@@ -1,6 +1,6 @@
 """Discussion table model."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlmodel import Field, SQLModel
 
@@ -15,4 +15,5 @@ class Discussion(SQLModel, table=True):
     content: str = Field(nullable=False)
     author: str | None = Field(default=None)
     parent_id: int | None = Field(default=None, foreign_key="discussion.id")
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    topic_id: int | None = Field(default=None, foreign_key="topic.id")
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

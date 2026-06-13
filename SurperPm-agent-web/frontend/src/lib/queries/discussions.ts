@@ -4,17 +4,26 @@ import { discussionListSchema, type Discussion } from "../schemas/discussion";
 import { parseWithFallback } from "../utils/parse-with-fallback";
 
 export const discussionKeys = {
-  all: (wsId: string) => ["discussions", wsId] as const,
-  list: (wsId: string) => [...discussionKeys.all(wsId), "list"] as const,
+  all: (goalId: number) => ["discussions", goalId] as const,
+  list: (goalId: number, topicId?: number | null) =>
+    topicId != null
+      ? ([...discussionKeys.all(goalId), "list", topicId] as const)
+      : ([...discussionKeys.all(goalId), "list"] as const),
 };
 
 export type { Discussion };
 
-export const discussionListOptions = (workspaceId: string) =>
+export const discussionListOptions = (
+  goalId: number,
+  topicId?: number | null
+) =>
   queryOptions({
-    queryKey: discussionKeys.list(workspaceId),
+    queryKey: discussionKeys.list(goalId, topicId),
     queryFn: async () => {
-      const res = await api.get(`/workspaces/${workspaceId}/discussions`);
+      const params = topicId != null ? `?topic_id=${topicId}` : "";
+      const res = await api.get(
+        `/goals/${goalId}/discussions${params}`
+      );
       return parseWithFallback(discussionListSchema, res, [] as Discussion[]);
     },
   });

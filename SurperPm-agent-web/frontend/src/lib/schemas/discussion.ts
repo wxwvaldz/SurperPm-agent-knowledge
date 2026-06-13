@@ -8,6 +8,7 @@ export const discussionSchema = z.object({
   content: z.string(),
   author: z.string().nullable().optional(),
   parent_id: z.number().nullable().optional(),
+  topic_id: z.number().nullable().optional(),
   created_at: z.string(),
 });
 

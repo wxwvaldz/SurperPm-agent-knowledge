@@ -1,4 +1,4 @@
-"""Discussions API — goal-scoped messaging + AI reply."""
+"""Standalone Discussions — pre-goal brainstorming chat (no goal_id required)."""
 import asyncio
 import logging
 
@@ -10,38 +10,45 @@ from sqlmodel import select
 
 from app.database import async_session, get_session
 from app.models.discussion import Discussion
-from app.models.goal import Goal
+from app.models.workspace import Workspace
 from app.routes.deps import require_auth
-from app.services.discuss_parser import parse_goal_mentions
-from app.services.event_bus import DISCUSSION_CREATED, DISCUSSION_DELTA, GOAL_UPDATED, bus
-from app.services.goal_executor import execute_goal as _execute_goal_bg
+from app.services.event_bus import DISCUSSION_CREATED, DISCUSSION_DELTA, bus
 
 _logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
 
-class DiscussionCreate(BaseModel):
+async def _get_default_workspace_id(session: AsyncSession) -> str:
+    stmt = select(Workspace).limit(1)
+    result = await session.execute(stmt)
+    ws = result.scalar_one_or_none()
+    if not ws:
+        raise HTTPException(status_code=404, detail="No workspace found")
+    return ws.id
+
+
+class StandaloneDiscussionCreate(BaseModel):
     content: str
     role: str = "user"
-    parent_id: int | None = None
     topic_id: int | None = None
     image_data_uri: str | None = None
 
 
 @router.get("")
-async def list_discussions(
-    goal_id: int,
+async def list_standalone_discussions(
     topic_id: int | None = None,
     limit: int = 50,
     offset: int = 0,
     session: AsyncSession = Depends(get_session),
     _user: dict = Depends(require_auth),
 ):
-    goal = await session.get(Goal, goal_id)
-    if not goal:
-        raise HTTPException(status_code=404, detail="Goal not found")
-    stmt = select(Discussion).where(Discussion.workspace_id == goal.workspace_id)
+    workspace_id = await _get_default_workspace_id(session)
+    stmt = (
+        select(Discussion)
+        .where(Discussion.workspace_id == workspace_id)
+        .where(Discussion.goal_id.is_(None))  # type: ignore[union-attr]
+    )
     if topic_id is not None:
         stmt = stmt.where(Discussion.topic_id == topic_id)
     stmt = stmt.order_by(Discussion.created_at.asc()).limit(limit).offset(offset)
@@ -49,78 +56,40 @@ async def list_discussions(
     return result.scalars().all()
 
 
-@router.get("/{discussion_id}")
-async def get_discussion(
-    goal_id: int,
-    discussion_id: int,
+@router.post("")
+async def create_standalone_discussion(
+    body: StandaloneDiscussionCreate,
     session: AsyncSession = Depends(get_session),
     _user: dict = Depends(require_auth),
 ):
-    goal = await session.get(Goal, goal_id)
-    if not goal:
-        raise HTTPException(status_code=404, detail="Goal not found")
-    disc = await session.get(Discussion, discussion_id)
-    if not disc:
-        raise HTTPException(status_code=404, detail="Discussion not found")
-    return disc
-
-
-@router.post("", status_code=201)
-async def create_discussion(
-    goal_id: int,
-    body: DiscussionCreate,
-    session: AsyncSession = Depends(get_session),
-    user: dict = Depends(require_auth),
-):
-    goal = await session.get(Goal, goal_id)
-    if not goal:
-        raise HTTPException(status_code=404, detail="Goal not found")
-    workspace_id = goal.workspace_id
+    workspace_id = await _get_default_workspace_id(session)
 
     discussion = Discussion(
         workspace_id=workspace_id,
-        content=body.content,
+        goal_id=None,
         role=body.role,
-        author=user.get("username", ""),
-        parent_id=body.parent_id,
+        content=body.content,
         topic_id=body.topic_id,
-        goal_id=goal_id,
+        author=_user.get("username"),
     )
     session.add(discussion)
     await session.commit()
     await session.refresh(discussion)
 
-    mentioned_ids = parse_goal_mentions(body.content)
-    for mid in mentioned_ids:
-        stmt = select(Goal).where(Goal.id == mid, Goal.workspace_id == workspace_id)
-        result = await session.execute(stmt)
-        g = result.scalar_one_or_none()
-        if g and g.status != "doing":
-            g.status = "doing"
-            session.add(g)
-            await session.commit()
-            await session.refresh(g)
-            await bus.emit(GOAL_UPDATED, {
-                "goal_id": g.id,
-                "workspace_id": workspace_id,
-                "status": "doing",
-            })
-            asyncio.create_task(_execute_goal_bg(workspace_id, g.id))
-
     await bus.emit(DISCUSSION_CREATED, {
         "id": discussion.id,
         "workspace_id": workspace_id,
-        "goal_id": goal_id,
-        "role": discussion.role,
-        "content": discussion.content,
+        "goal_id": None,
+        "role": body.role,
+        "content": body.content,
         "topic_id": body.topic_id,
         "created_at": discussion.created_at.isoformat(),
     })
 
     if body.role == "user":
         asyncio.create_task(
-            _generate_ai_reply(
-                workspace_id, goal_id, body.content, body.image_data_uri, body.topic_id,
+            _generate_ai_reply_standalone(
+                workspace_id, body.content, body.image_data_uri, body.topic_id,
             )
         )
 
@@ -129,16 +98,15 @@ async def create_discussion(
 
 _SYSTEM_PROMPT = (
     "You are a helpful project management assistant for SuperPmAgent. "
-    "You discuss project goals, provide suggestions, and help coordinate work. "
+    "You help brainstorm ideas, discuss project direction, and clarify goals. "
     "Be concise and actionable. Reply in the same language the user uses."
 )
 
 _MAX_CONTEXT_MESSAGES = 20
 
 
-async def _generate_ai_reply(
+async def _generate_ai_reply_standalone(
     workspace_id: str,
-    goal_id: int,
     user_content: str,
     image_data_uri: str | None = None,
     topic_id: int | None = None,
@@ -153,10 +121,10 @@ async def _generate_ai_reply(
             async with async_session() as db:
                 err_msg = Discussion(
                     workspace_id=workspace_id,
+                    goal_id=None,
                     content="⚠️ 当前 AI API 未配置，请在 Settings → AI Model 中设置 API Key。",
                     role="agent",
                     topic_id=topic_id,
-                    goal_id=goal_id,
                 )
                 db.add(err_msg)
                 await db.commit()
@@ -164,7 +132,7 @@ async def _generate_ai_reply(
             await bus.emit(DISCUSSION_CREATED, {
                 "id": err_msg.id,
                 "workspace_id": workspace_id,
-                "goal_id": goal_id,
+                "goal_id": None,
                 "role": "agent",
                 "content": err_msg.content,
                 "topic_id": topic_id,
@@ -172,19 +140,20 @@ async def _generate_ai_reply(
             })
             await bus.emit(DISCUSSION_DELTA, {
                 "workspace_id": workspace_id,
-                "goal_id": goal_id,
+                "goal_id": None,
                 "discussion_id": err_msg.id,
                 "delta": "",
                 "done": True,
             })
             return
+
         async with async_session() as db:
             agent_msg = Discussion(
                 workspace_id=workspace_id,
+                goal_id=None,
                 content="",
                 role="agent",
                 topic_id=topic_id,
-                goal_id=goal_id,
             )
             db.add(agent_msg)
             await db.commit()
@@ -194,7 +163,7 @@ async def _generate_ai_reply(
         await bus.emit(DISCUSSION_CREATED, {
             "id": disc_id,
             "workspace_id": workspace_id,
-            "goal_id": goal_id,
+            "goal_id": None,
             "role": "agent",
             "content": "",
             "topic_id": topic_id,
@@ -202,7 +171,11 @@ async def _generate_ai_reply(
         })
 
         async with async_session() as db:
-            stmt = select(Discussion).where(Discussion.workspace_id == workspace_id)
+            stmt = (
+                select(Discussion)
+                .where(Discussion.workspace_id == workspace_id)
+                .where(Discussion.goal_id.is_(None))  # type: ignore[union-attr]
+            )
             if topic_id is not None:
                 stmt = stmt.where(Discussion.topic_id == topic_id)
             stmt = stmt.order_by(Discussion.created_at.desc()).limit(_MAX_CONTEXT_MESSAGES)
@@ -253,7 +226,7 @@ async def _generate_ai_reply(
                 full_text += text
                 await bus.emit(DISCUSSION_DELTA, {
                     "workspace_id": workspace_id,
-                    "goal_id": goal_id,
+                    "goal_id": None,
                     "discussion_id": disc_id,
                     "delta": text,
                 })
@@ -269,18 +242,18 @@ async def _generate_ai_reply(
 
         await bus.emit(DISCUSSION_DELTA, {
             "workspace_id": workspace_id,
-            "goal_id": goal_id,
+            "goal_id": None,
             "discussion_id": disc_id,
             "delta": "",
             "done": True,
         })
 
     except Exception as e:
-        _logger.warning("AI reply failed for goal %d: %s", goal_id, e)
+        _logger.warning("Standalone AI reply failed: %s", e)
         if disc_id is not None:
             await bus.emit(DISCUSSION_DELTA, {
                 "workspace_id": workspace_id,
-                "goal_id": goal_id,
+                "goal_id": None,
                 "discussion_id": disc_id,
                 "delta": "",
                 "error": f"AI 回复出错: {e}",
