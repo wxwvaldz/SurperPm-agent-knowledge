@@ -1,0 +1,148 @@
+{
+  "schema": 1,
+  "description": "Twenty external repos for diverse-20 soak (one repo + one case per round).",
+  "dv_pool": [
+    "DV-01",
+    "DV-02",
+    "DV-03",
+    "DV-04",
+    "DV-05",
+    "DV-06",
+    "DV-07",
+    "DV-08",
+    "DV-09",
+    "DV-10",
+    "DV-11",
+    "DV-12",
+    "DV-13",
+    "DV-14",
+    "DV-15",
+    "DV-16",
+    "DV-17",
+    "DV-18",
+    "DV-19",
+    "DV-20"
+  ],
+  "targets": {
+    "dv-pretty-bytes": {
+      "path": "benchmark-targets/dv-pretty-bytes",
+      "clone_url": "https://github.com/sindresorhus/pretty-bytes.git",
+      "reset": true,
+      "stack": "node"
+    },
+    "dv-camelcase": {
+      "path": "benchmark-targets/dv-camelcase",
+      "clone_url": "https://github.com/sindresorhus/camelcase.git",
+      "reset": true,
+      "stack": "node"
+    },
+    "dv-titleize": {
+      "path": "benchmark-targets/dv-titleize",
+      "clone_url": "https://github.com/sindresorhus/titleize.git",
+      "reset": true,
+      "stack": "node"
+    },
+    "dv-strip-ansi": {
+      "path": "benchmark-targets/dv-strip-ansi",
+      "clone_url": "https://github.com/chalk/strip-ansi.git",
+      "reset": true,
+      "stack": "node"
+    },
+    "dv-colord": {
+      "path": "benchmark-targets/dv-colord",
+      "clone_url": "https://github.com/omgovich/colord.git",
+      "reset": true,
+      "stack": "node-monorepo"
+    },
+    "dv-normalize-url": {
+      "path": "benchmark-targets/dv-normalize-url",
+      "clone_url": "https://github.com/sindresorhus/normalize-url.git",
+      "reset": true,
+      "stack": "node"
+    },
+    "dv-kleur": {
+      "path": "benchmark-targets/dv-kleur",
+      "clone_url": "https://github.com/lukeed/kleur.git",
+      "reset": true,
+      "stack": "node"
+    },
+    "dv-defu": {
+      "path": "benchmark-targets/dv-defu",
+      "clone_url": "https://github.com/unjs/defu.git",
+      "reset": true,
+      "stack": "node"
+    },
+    "dv-scule": {
+      "path": "benchmark-targets/dv-scule",
+      "clone_url": "https://github.com/unjs/scule.git",
+      "reset": true,
+      "stack": "node"
+    },
+    "dv-ufo": {
+      "path": "benchmark-targets/dv-ufo",
+      "clone_url": "https://github.com/unjs/ufo.git",
+      "reset": true,
+      "stack": "node"
+    },
+    "dv-fast-deep-equal": {
+      "path": "benchmark-targets/dv-fast-deep-equal",
+      "clone_url": "https://github.com/epoberezkin/fast-deep-equal.git",
+      "reset": true,
+      "stack": "node"
+    },
+    "dv-ms": {
+      "path": "benchmark-targets/dv-ms",
+      "clone_url": "https://github.com/vercel/ms.git",
+      "reset": true,
+      "stack": "node"
+    },
+    "dv-py-slugify": {
+      "path": "benchmark-targets/dv-py-slugify",
+      "clone_url": "https://github.com/un33k/python-slugify.git",
+      "reset": true,
+      "stack": "python"
+    },
+    "dv-humanize": {
+      "path": "benchmark-targets/dv-humanize",
+      "clone_url": "https://github.com/python-humanize/humanize.git",
+      "reset": true,
+      "stack": "python"
+    },
+    "dv-more-itertools": {
+      "path": "benchmark-targets/dv-more-itertools",
+      "clone_url": "https://github.com/more-itertools/more-itertools.git",
+      "reset": true,
+      "stack": "python"
+    },
+    "dv-cachetools": {
+      "path": "benchmark-targets/dv-cachetools",
+      "clone_url": "https://github.com/tkem/cachetools.git",
+      "reset": true,
+      "stack": "python"
+    },
+    "dv-bleach": {
+      "path": "benchmark-targets/dv-bleach",
+      "clone_url": "https://github.com/mozilla/bleach.git",
+      "reset": true,
+      "stack": "python"
+    },
+    "dv-boltons": {
+      "path": "benchmark-targets/dv-boltons",
+      "clone_url": "https://github.com/mahmoud/boltons.git",
+      "reset": true,
+      "stack": "python"
+    },
+    "dv-pathe": {
+      "path": "benchmark-targets/dv-pathe",
+      "clone_url": "https://github.com/unjs/pathe.git",
+      "reset": true,
+      "stack": "node"
+    },
+    "dv-go-humanize": {
+      "path": "benchmark-targets/dv-go-humanize",
+      "clone_url": "https://github.com/dustin/go-humanize.git",
+      "reset": true,
+      "stack": "go"
+    }
+  }
+}

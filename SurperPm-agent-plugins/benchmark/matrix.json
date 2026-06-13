@@ -1,0 +1,56 @@
+{
+  "schema": 1,
+  "description": "Case sets for benchmark matrix and overnight soak runs.",
+  "sets": {
+    "standard": {
+      "description": "Conduit trio + XC code + WEB contract",
+      "trio": ["L1-01", "L2-01", "L3-03"],
+      "xc": ["XC-01", "XC-02", "XC-03"],
+      "web": ["WEB-01", "WEB-02", "WEB-03", "WEB-04"],
+      "standalone": []
+    },
+    "extended": {
+      "description": "standard plus extra Conduit L2/L3 cases (rotated per round index)",
+      "trio": ["L1-01", "L2-01", "L3-03"],
+      "xc": ["XC-01", "XC-02", "XC-03"],
+      "web": ["WEB-01", "WEB-02", "WEB-03", "WEB-04"],
+      "conduit_extra_pool": ["L2-02", "L2-03", "L2-04", "L3-01", "L3-02"],
+      "conduit_extra_per_round": 2,
+      "standalone": []
+    },
+    "xc-only": {
+      "description": "Cross-repo code cases only",
+      "trio": [],
+      "xc": ["XC-01", "XC-02", "XC-03"],
+      "web": [],
+      "standalone": []
+    },
+    "conduit-extended": {
+      "description": "Conduit trio plus rotating extended cases",
+      "trio": ["L1-01", "L2-01", "L3-03"],
+      "xc": [],
+      "web": [],
+      "conduit_extra_pool": ["L2-02", "L2-03", "L2-04", "L3-01", "L3-02"],
+      "conduit_extra_per_round": 2,
+      "standalone": []
+    },
+    "diverse-20": {
+      "description": "One DV case on one unique external repo per round (20-round rotation)",
+      "trio": [],
+      "xc": [],
+      "web": [],
+      "standalone": [],
+      "dv_one_per_round": true,
+      "skip_conduit_reset": true
+    },
+    "app-50": {
+      "description": "One AP L2+ application case on one unique app/full-stack repo per round (50-round rotation)",
+      "trio": [],
+      "xc": [],
+      "web": [],
+      "standalone": [],
+      "ap_one_per_round": true,
+      "skip_conduit_reset": true
+    }
+  }
+}
