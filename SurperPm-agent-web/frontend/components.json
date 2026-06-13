@@ -4,6 +4,7 @@
   "rsc": false,
   "tsx": true,
   "tailwind": {
+    "config": "",
     "css": "src/index.css",
     "baseColor": "neutral",
     "cssVariables": true
@@ -15,6 +16,6 @@
     "hooks": "@/hooks"
   },
   "registries": {
-    "@retroui": "https://retroui.dev/r/{name}.json"
+    "@retroui": "TODO_VERIFY_RETROUI_REGISTRY_URL_W2"
   }
 }

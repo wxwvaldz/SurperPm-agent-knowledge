@@ -10,9 +10,7 @@ import Config from './pages/Config'
 import Goal from './pages/Goal'
 import Knowledge from './pages/Knowledge'
 import Login from './pages/Login'
-import LoginOAuth from './pages/LoginOAuth'
 import Setup from './pages/Setup'
-import SetupNew from './pages/SetupNew'
 
 import './index.css'
 
@@ -20,12 +18,10 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <BrowserRouter>
       <Routes>
-        <Route path="/login" element={<LoginOAuth />} />
-	        <Route path="/login-pat" element={<Login />} />
+        <Route path="/login" element={<Login />} />
         <Route element={<Layout />}>
           <Route path="/" element={<Navigate to="/goal" replace />} />
-          <Route path="/setup" element={<SetupNew />} />
-          <Route path="/setup-old" element={<Setup />} />
+          <Route path="/setup" element={<Setup />} />
           <Route path="/config" element={<Config />} />
           <Route path="/knowledge" element={<Knowledge />} />
           <Route path="/goal" element={<Goal />} />

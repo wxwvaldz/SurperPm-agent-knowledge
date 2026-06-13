@@ -1,0 +1,38 @@
+name: deploy
+
+# W1 末: manual-only until Dockerfile is rewritten for uv (current Dockerfile
+# uses `pip install -e ./backend` and breaks because backend now uses uv).
+# W2 TODO: rewrite Dockerfile to use uv; then restore push trigger.
+on:
+  workflow_dispatch:
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login to registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/SuperPmAgent:latest
+
+  redeploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger server pull
+        run: |
+          # TODO (W2): SSH to host and `docker compose pull && docker compose up -d`
+          # OR: have host run a watchtower watching the registry tag.
+          echo "STUB - server pull hook"

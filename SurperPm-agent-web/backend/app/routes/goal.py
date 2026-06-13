@@ -1,23 +1,39 @@
 """Goal submit + dashboard + HITL."""
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 
-from app.models import GoalRun, GoalSubmit
+from app.config import settings
+from app.models import GoalSubmit
 
 router = APIRouter()
 
 
 @router.post("/submit")
-async def submit(goal: GoalSubmit) -> dict:
-    """Provision a LAP pod (or local worktree) and start the loop."""
-    # TODO (W2): call goal_runner.py
-    return {"id": "L000", "status": "queued"}
+async def submit(request: Request, goal: GoalSubmit) -> dict:
+    """Start goal execution via claude-agent-sdk."""
+    runner = request.app.state.goal_runner
+    run_id = await runner.start_goal(
+        text=goal.text,
+        plugin_path=settings.plugin_repo_path,
+        repo_path=settings.target_repo_path,
+    )
+    return {"id": run_id, "status": "running"}
 
 
 @router.get("/list")
-async def list_goals() -> list[GoalRun]:
-    """List all goals (running / paused / done)."""
-    # TODO (W2): query goal_runner state
-    return []
+async def list_goals(request: Request) -> list[dict]:
+    """List all goal runs."""
+    runner = request.app.state.goal_runner
+    return runner.list_runs()
+
+
+@router.get("/{goal_id}")
+async def get_goal(request: Request, goal_id: str) -> dict:
+    """Get a single goal run by id."""
+    runner = request.app.state.goal_runner
+    run = runner.get_run(goal_id)
+    if run is None:
+        return {"error": "not found"}
+    return run
 
 
 @router.post("/{goal_id}/pause")

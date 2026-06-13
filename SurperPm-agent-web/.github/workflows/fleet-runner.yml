@@ -1,0 +1,24 @@
+name: fleet-runner
+
+# LAP 批量 /goal 调度入口（W3 实现）。
+# 由 SuperPmAgent-web /goal 页面通过 workflow_dispatch 触发。
+
+on:
+  workflow_dispatch:
+    inputs:
+      goals:
+        description: 'IntentSpec session IDs (JSON array as string)'
+        required: true
+
+jobs:
+  fleet:
+    runs-on: ubuntu-latest
+    strategy:
+      max-parallel: 5
+      matrix:
+        goal: ${{ fromJSON(inputs.goals) }}
+    steps:
+      - name: Spawn LAP pod
+        run: |
+          # TODO (W3): call LAP API to spawn pod with session ${{ matrix.goal }}
+          echo "STUB - would spawn pod for ${{ matrix.goal }}"
