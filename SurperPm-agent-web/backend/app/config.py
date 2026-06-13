@@ -1,0 +1,25 @@
+"""Settings loaded from env vars / .env."""
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    # GitHub
+    github_token: str = ""
+    github_repo: str = ""  # e.g. "myteam/claude-for-SuperPmAgent-fork"
+
+    # Anthropic / 豆包
+    anthropic_api_key: str = ""
+    doubao_api_key: str = ""
+    doubao_endpoint: str = "https://ark.cn-beijing.volces.com/api/v3"
+
+    # LAP
+    lap_url: str = ""
+    lap_token: str = ""
+
+    # Local repo path (for dev — points at the user's local clone)
+    repo_local_path: str = ""
+
+
+settings = Settings()
