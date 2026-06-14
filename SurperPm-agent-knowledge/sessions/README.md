@@ -1,29 +1,23 @@
 # sessions/
 
-Multi-turn chat folders. Each folder is one PM session = one prospective /goal.
+按 topic（会话主题）组织，每个 goal 一个文件。
 
-## Folder shape
+## 结构（v0.8）
 
 ```
-<session-name>/
-├── conversation.md      # full chat history (auto-appended by Web /knowledge chat)
-├── notes.md             # PM's free-form notes
-├── decisions.md         # key decisions made during clarification
-├── attachments/         # screenshots, PRD excerpts, links
-└── executions/          # /goal run receipts (post-execution)
-    └── <YYYY-MM-DD-run-N>.md
+sessions/
+├── topic-<id>-<slug>/           ← 一个 topic 一个目录（来自 .logs/topics.jsonl）
+│   ├── INDEX.md                 ← topic 概览 + goals 列表
+│   └── goal-<id>-<slug>.md      ← 一个 goal 一个文件（澄清事实 + decisions + scope + 执行结果）
+└── archive/                     ← 归档的 topic
 ```
 
-## Naming
+## 要点
 
-Default: `<slug-from-first-message>-<YYYYMMDD>`. PM may rename via `git mv`.
+- **对话来源**：`.logs/discussions/<topic_id>.jsonl`（唯一来源，sessions/ 不存对话）
+- **goal 文件**：存澄清后的精华（facts / decisions / scope / execution result），不是对话副本
+- **蒸馏输入**：distill 读 goal 文件 + .logs/ 对话 → 产出写 `domain/`
+- **跨天 goal**：自然支持——goal 文件在 topic 目录下，不按日期归属
+- **归档单位**：topic 目录（所有 goal 完成 + distilled + 90 天无 access）
 
-## Lifecycle
-
-- A session can be re-run multiple times via /goal.
-- After each /goal, a receipt is added to `executions/`.
-- The session itself is not consumed; `distill` writes new artifacts to `SuperPmAgent-business/skills/` and `knowledge/domain/`, not back here.
-
-## Privacy
-
-The session folder is **private to its /goal run** — only that run sees it. Other knowledge subtrees (profiles/domain/extensions) are globally visible.
+详见 `INDEX.md`。

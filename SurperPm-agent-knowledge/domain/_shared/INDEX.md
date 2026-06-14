@@ -8,9 +8,36 @@
 
 | Subtree | Contents | TTL |
 |---------|----------|-----|
-| `foundations/` | Universal architectural principles | 365 days |
-| `conventions/` | Team-wide coding standards | 180 days |
-| `context/` | Current cross-cutting initiatives | 60 days |
+| `foundations/` | SuperPmAgent 跨域架构事实 | 365 days |
+| `conventions/` | SuperPmAgent 跨域团队约定 | 180 days |
+| `context/` | SuperPmAgent 跨域当前推进事项 | 60 days |
+
+## Files
+
+### Foundations
+
+| File | Title | Confidence | Updated |
+|------|-------|-----------|---------|
+| `foundations/markdown-architecture.md` | Markdown + Git 架构基石 | 0.9 | 2026-06-14 |
+| `foundations/user-model.md` | 用户模型与身份体系 | 0.85 | 2026-06-14 |
+| `foundations/api-id-uuid.md` | 所有 API 用 UUID 作主键 | 0.9 | 2026-06-14 |
+| `foundations/migration-reversible.md` | 数据库 migration 必须可回滚 | 0.85 | 2026-06-14 |
+
+### Conventions
+
+| File | Title | Confidence | Updated |
+|------|-------|-----------|---------|
+| `conventions/coding-standards.md` | 编码规范（命名、注释、错误处理）| 0.9 | 2026-06-14 |
+| `conventions/frontmatter-format.md` | Frontmatter 格式约定 | 0.95 | 2026-06-14 |
+| `conventions/git-branch-naming.md` | Git 分支命名规范 | 0.9 | 2026-06-14 |
+| `conventions/pr-review-protocol.md` | PR 审核流程与 checklist | 0.85 | 2026-06-14 |
+
+### Context
+
+| File | Title | Confidence | Updated |
+|------|-------|-----------|---------|
+| `context/active-features.md` | 当前在做的特性总览 | 0.8 | 2026-06-14 |
+| `context/distill-testing.md` | 蒸馏测试笔记 | 0.7 | 2026-06-14 |
 
 ## Discovery
 
@@ -32,10 +59,9 @@ Load order:
 | Question | Target |
 |----------|--------|
 | Does this apply to ALL business areas? | `_shared/` |
-| Does this only apply to user management? | `user-management/` |
-| Does this only apply to payments? | `payment/` |
+| Does this only apply to one area? | `<area>/` (e.g., `payment/`) |
 | Is this a team-wide convention? | `_shared/conventions/` |
-| Is this specific to one module? | `<module>/conventions/` |
+| Is this specific to one business area? | `<area>/conventions/` |
 
 ### Examples
 
@@ -44,52 +70,17 @@ Load order:
 - "Database migrations must be reversible"
 - "Git branching: main ← develop ← feature"
 
-**Write to `<business>/foundations/`**:
-- "User table uses email as unique identifier"
+**Write to `<area>/foundations/`** (例：payment):
 - "Payment gateway integrates with Stripe"
-- "Order status machine: pending → paid → shipped"
-
-## Foundations
-
-*No foundation files in _shared yet. (See parent domain/foundations/)*
-
-## Conventions
-
-*No convention files in _shared yet. (See parent domain/conventions/)*
-
-## Context
-
-*No active cross-cutting context files yet.*
+- "Refund must verify idempotency key"
+- "Settlement cycle: T+1 to merchants"
 
 ## Unified Frontmatter
 
-Same as domain standard (see parent `INDEX.md`):
-
-```yaml
----
-title: "<short-title>"
-type: foundation              # foundation | convention | context
-tags: [tag1, tag2]
-
-# === Confidence ===
-confidence: 0.8
-confidence_reason: "reason"
-last_verified: YYYY-MM-DD
-
-# === Lifecycle ===
-created: YYYY-MM-DD
-last_accessed: YYYY-MM-DD
-access_count: 0
-ttl_days: 365
-status: active
-
-# === Provenance ===
-source: session/<name>
----
-```
+Same as domain standard (see parent `INDEX.md`). 必填字段 `area: _shared`。
 
 ## Anti-patterns
 
-- ❌ Don't write module-specific knowledge here
+- ❌ Don't write area-specific knowledge here (use `<area>/`)
 - ❌ Don't duplicate — if exists in business area, don't add to _shared
-- ✅ Do write here if unsure — easier to move later than split early
+- ✅ Do write here if applies to **2 or more** areas

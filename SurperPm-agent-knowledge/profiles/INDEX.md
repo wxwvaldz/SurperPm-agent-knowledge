@@ -10,64 +10,18 @@
 | `team.md` | Team profile (tech stack, members) | Monthly | Frontmatter only | ~200 |
 | `users/<id>.md` | Personal preferences | Quarterly | On-demand | ~100 |
 
-## Unified Frontmatter Template
+## Frontmatter Schema
 
-All profile files use the same structure as domain files:
+**完整 schema 见 `_meta/frontmatter-schema.md` §2.2 (team.md) + §2.3 (users/<id>.md)**。
 
-**team.md**:
-```yaml
----
-title: "<team-name> Team Profile"
-type: profile
-tags: [team]
+本层差异（profile 层特定）：
+- `type` 必须是 `profile`
+- `tags` 必含 `team` 或 `user` 前缀
+- 默认 `ttl_days: 180`
+- `source` 通常是 `setup` 或 `session/<name>`
+- profiles 不允许包含 PII / 敏感数据（见下方 Anti-patterns）
 
-# === Confidence ===
-confidence: 0.9
-confidence_reason: "用户在 /setup 中填写"
-last_verified: YYYY-MM-DD
-
-# === Lifecycle ===
-created: YYYY-MM-DD
-last_accessed: YYYY-MM-DD
-access_count: 0
-ttl_days: 180
-status: active
-
-# === Provenance ===
-source: setup
----
-```
-
-**users/<staff-id>.md**:
-```yaml
----
-title: "<name>"
-type: profile
-tags: [user, <staff-id>]
-
-# === Confidence ===
-confidence: 0.9
-confidence_reason: "用户明确表达偏好"
-last_verified: YYYY-MM-DD
-
-# === Lifecycle ===
-created: YYYY-MM-DD
-last_accessed: YYYY-MM-DD
-access_count: 0
-ttl_days: 180
-status: active
-
-# === Provenance ===
-source: session/<name>
----
-```
-
-### Field Order
-
-1. Basic info: `title`, `type`, `tags`
-2. Confidence: `confidence`, `confidence_reason`, `last_verified`
-3. Lifecycle: `created`, `last_accessed`, `access_count`, `ttl_days`, `status`
-4. Provenance: `source`
+参考 5 个真实 user profile 作样板：`alice-chen.md` / `bob-wang.md` / `carol-liu.md` / `david-zhao.md` / `eve-sun.md`
 
 ## Distill Rules
 

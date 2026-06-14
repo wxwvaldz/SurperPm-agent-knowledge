@@ -5,77 +5,72 @@
 
 ## Structure
 
-Domain knowledge is organized by **business area** for better discoverability:
+Domain knowledge is organized by **business area**. Top-level `domain/` contains **only** `_shared/` + business-area folders. The three semantic subtrees (`foundations/`, `conventions/`, `context/`) **only** appear inside `_shared/` or inside a business-area folder.
 
 ```
 domain/
+├── INDEX.md                 # This file
 ├── _shared/                 # Cross-cutting knowledge (always loaded)
-│   ├── foundations/
-│   ├── conventions/
-│   └── context/
-├── <business-area>/         # e.g., user-management, payment, order
-│   ├── foundations/         # Stable architectural facts
-│   ├── conventions/         # Team conventions
-│   └── context/             # Current project context
-└── INDEX.md                 # This file
+│   ├── INDEX.md
+│   ├── foundations/         # SuperPmAgent-wide architectural facts
+│   ├── conventions/         # SuperPmAgent-wide coding standards
+│   └── context/             # SuperPmAgent-wide ongoing initiatives
+└── <business-area>/         # e.g., payment, growth, marketing
+    ├── INDEX.md
+    ├── foundations/         # Stable architectural facts in this area
+    ├── conventions/         # Team conventions in this area
+    └── context/             # Current active work in this area
 ```
 
-### Current Business Areas
+**Anti-pattern (DO NOT)**: Putting `.md` files directly under `domain/foundations/`, `domain/conventions/`, or `domain/context/` (top-level). These three names are reserved as **subtree names** inside `_shared/` and business areas.
 
-| Area | Description | Subtrees |
-|------|-------------|----------|
-| `_shared` | Cross-cutting knowledge (loaded for all goals) | foundations/conventions/context |
-| *(Add new areas as needed)* | Create subdirectory with 3 subtrees | foundations/conventions/context |
+## Current Business Areas
 
-### Discovery Rules
+| Area | Description | Status |
+|------|-------------|--------|
+| `_shared` | 跨领域共用（git 规范 / PR review / 当前活跃工作）| active |
+| `research` | 科研：论文写作 / 图表设计 / 引用系统 / 可复现性 / peer review | active |
+| `frontend` | 前端开发：组件架构 / 状态管理 / 性能优化 / React / 可访问性 | active |
+| `backend` | 后端开发：API 设计 / 数据库 / 并发模式 / 错误处理 / 日志 | active |
+
+> 新增业务领域：`mkdir -p domain/<area>/{foundations,conventions,context}` + 创建 `domain/<area>/INDEX.md`。
+
+## Discovery Rules
 
 At goal start, the `find` skill loads:
 
-1. **Always**: `_shared/**/*.md` (global knowledge, ~500 tokens)
-2. **By tags**: Match goal tags to business area (e.g., `user` → `user-management/`)
+1. **Always**: `_shared/foundations/*.md` + `_shared/conventions/*.md` + `_shared/context/*.md` (status=active)
+2. **By tags**: Match goal tags to business area (e.g., goal mentioning "衰减" → load `decay/`，goal mentioning "蒸馏" → load `distill/`)
 3. **By keyword**: Grep across all areas for relevant context
 
-**Budget**: ~1500-2000 tokens for domain knowledge (adjustable)
+**Budget**: ~1500-2000 tokens for domain knowledge.
 
-## Unified Frontmatter Template
+## Three Subtrees: foundation / convention / context
 
-All domain files use this structure:
+每个领域（含 `_shared`）下都有这三档子目录，含义如下：
 
-```yaml
----
-title: "<short-title>"
-type: foundation              # foundation | convention | context
-tags: [tag1, tag2]
+| 子目录 | 内容 | 寿命 | 例子 |
+|--------|------|------|------|
+| `foundations/` | **稳定架构事实**：系统设计、数据模型、不变量 | 长（365 天 TTL）| "论文 IMRaD 结构"、"组件架构"、"API 设计" |
+| `conventions/` | **团队约定**：编码规范、流程规则 | 中（180 天 TTL）| "React 最佳实践"、"可复现性 checklist"、"日志规范" |
+| `context/` | **当前在做的事**：active features、experiments、roadmap | 短（60 天 TTL）| "当前论文项目"、"UI 重构"、"微服务拆分" |
 
-# === Confidence ===
-confidence: 0.8
-confidence_reason: "reason"
-last_verified: YYYY-MM-DD
-verification_status: unverified    # unverified | verified | outdated | disputed
-verification_count: 0
-last_verification_by: ""
-last_confidence_update: YYYY-MM-DD
+**判定原则**：
+- "这件事**几乎不会变**" → foundations
+- "这是**团队规则**，新人加入要遵守" → conventions  
+- "这是**当下在推进**，3 个月内可能变" → context
 
-# === Lifecycle ===
-created: YYYY-MM-DD
-last_accessed: YYYY-MM-DD
-access_count: 0
-ttl_days: 365                 # see TTL table below
-status: active
+## Frontmatter Schema
 
-# === Provenance ===
-source: session/<name>
----
-```
+**完整 schema 见 `_meta/frontmatter-schema.md` §2.1**。
 
-### Field Order
+本层差异（domain 层特定）：
+- `type` 必须是 `foundation` / `convention` / `context`
+- **`area` 必填**：`research` / `frontend` / `backend` / `_shared`
+- 默认 TTL: foundation=365 / convention=180 / context=60
+- 必填 `source: session/<name>`（来自蒸馏，不允许 manual）
 
-1. Basic info: `title`, `type`, `tags`
-2. Confidence: `confidence`, `confidence_reason`, `last_verified`, `verification_status`, `verification_count`, `last_verification_by`, `last_confidence_update`
-3. Lifecycle: `created`, `last_accessed`, `access_count`, `ttl_days`, `status`
-4. Provenance: `source`
-
-### TTL Values
+### TTL Values（本层 override）
 
 | Type | Default TTL | Extension Criteria |
 |------|-------------|-------------------|
@@ -84,6 +79,8 @@ source: session/<name>
 | context | 60 days | status=active → +60 days |
 
 ### Confidence Scoring
+
+完整规则见 `_meta/frontmatter-schema.md` §4。本层常用：
 
 | Source | Initial confidence |
 |--------|-------------------|
@@ -99,9 +96,19 @@ source: session/<name>
 
 | Pattern | Type | Target |
 |---------|------|--------|
-| Architecture decision ("we decided to use X") | foundation | `foundations/<slug>.md` |
-| Team convention ("we should always...") | convention | `conventions/<slug>.md` |
-| Active work ("currently working on X") | context | `context/<slug>.md` |
+| Architecture decision ("we decided to use X") | foundation | `<area>/foundations/<slug>.md` |
+| Team convention ("we should always...") | convention | `<area>/conventions/<slug>.md` |
+| Active work ("currently working on X") | context | `<area>/context/<slug>.md` |
+
+### Business Area Decision Tree
+
+1. Extract keywords from the knowledge content
+2. Match against area keywords:
+   - 论文 / paper / 科研 / 图表 / figure / matplotlib / citation / BibTeX / 可复现 / peer review → `research`
+   - 前端 / React / Vue / 组件 / 状态管理 / 性能 / a11y / Tailwind / hooks → `frontend`
+   - 后端 / API / REST / 数据库 / migration / 并发 / 限流 / 日志 / 微服务 → `backend`
+3. Cross-cutting (applies to ≥2 areas) → `_shared/`
+4. No match → ask user to specify or default to `_shared/`
 
 ### Quality Gates
 
@@ -112,29 +119,25 @@ source: session/<name>
 - Content must be actionable
 - Max 100 lines per file
 
-## Discovery
-
-At goal start:
-1. Always read: `foundations/*.md` (full text)
-2. Grep: `conventions/` by matching tags
-3. Grep: `context/` where `status: active`
-
 ## Maintenance
 
-- `/summary`: Extracts from sessions → writes here
-- `/dream`: Archives completed, updates confidence, extends TTL, applies memory decay
+- `/distill summary`: Extracts from sessions → writes here
+- `/distill dream`: Archives completed, updates confidence, extends TTL, applies memory decay
+- **Decay 维护脚本**：`SuperPmAgent-core/skills/distill/scripts/apply-decay.sh`（v0.7 新增，**脚本触发**）
 
-### Memory Decay Mechanism (NEW)
+### Memory Decay Mechanism
 
-**Applied during Dream mode**:
+**Applied during Dream mode (or apply-decay.sh)**:
 - **Formula**: `decay = base_rate × time_factor × usage_factor`
 - **Base Rates**: foundation=5%/year, convention=8%/year, context=15%/year
 - **Time Factor**: `log(1 + age_years) / log(2)` (logarithmic)
 - **Usage Factor**: 0 access=2.0, 1-2=1.0, 3-9=0.5, 10-19=0.3, 20+=0.1
 - **Max Decay**: 0.10 per Dream run
+- **Grace Period**: age < 30 days → skip decay (避免新知识强制扣分)
 - **High-Access Boost**: access_count >= 10 → +0.02~0.10
+- **配置文件**：`knowledge/.SuperPmAgent/decay-config.yaml`（v0.7 新增，可配置）
 
-### Manual Verification (NEW)
+### Manual Verification
 
 **Triggered when confidence < 0.4**:
 1. Dream mode flags file for verification
@@ -151,3 +154,4 @@ At goal start:
 - Don't write temporary experiments to foundations (use context)
 - Don't duplicate — grep first
 - Don't modify main directly — always open PR
+- **Don't put files directly under `domain/foundations/` `domain/conventions/` `domain/context/`** (top-level) — these three names are reserved as subtree names inside `_shared/` or business areas
