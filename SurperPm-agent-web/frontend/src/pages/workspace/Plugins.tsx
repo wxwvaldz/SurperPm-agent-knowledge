@@ -1,25 +1,23 @@
-import { useCallback, useState, type ChangeEvent } from "react";
+import { useState, type ChangeEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/components/business/toast";
 import { useConfirm } from "@/components/business/confirm-dialog";
 import {
   Search, Plug, Cpu, Wrench, Plus, Trash2, RefreshCw,
-  Power, PowerOff, Download, CheckCircle, AlertTriangle,
+  Power, PowerOff, CheckCircle, AlertTriangle,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { Text } from "@/components/retroui/Text";
-import { Input } from "@/components/retroui/Input";
 import { Textarea } from "@/components/retroui/Textarea";
 import { Card } from "@/components/retroui/Card";
 import { Badge } from "@/components/retroui/Badge";
 import { Button } from "@/components/retroui/Button";
 import { Dialog } from "@/components/retroui/Dialog";
 import { Label } from "@/components/retroui/Label";
-import { Tooltip } from "@/components/retroui/Tooltip";
 import { skillKeys, skillListOptions } from "@/lib/queries/skills";
 import { mcpListOptions, mcpKeys } from "@/lib/queries/mcp";
-import { pluginInstalledOptions, pluginMarketplaceStatusOptions, pluginKeys } from "@/lib/queries/plugins";
+import { pluginInstalledOptions, pluginKeys } from "@/lib/queries/plugins";
 import { SkillCard } from "@/components/skills/skill-card";
 import { CreateSkillDialog } from "@/components/skills/create-skill-dialog";
 
@@ -78,7 +76,7 @@ function SkillsGrid({
   });
 
   async function handleDelete(skill: { slug: string; name: string }) {
-    if (await confirm({ message: `确定要删除 "${skill.name}"？`, confirmLabel: "删除" })) {
+    if (await confirm({ message: `Delete "${skill.name}"?`, confirmLabel: "Delete" })) {
       deleteMutation.mutate(skill.slug);
     }
   }
@@ -86,7 +84,7 @@ function SkillsGrid({
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-48">
-        <Text className="text-muted-foreground">加载中...</Text>
+        <Text className="text-muted-foreground">Loading...</Text>
       </div>
     );
   }
@@ -94,8 +92,8 @@ function SkillsGrid({
   if (!skills || skills.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-48 gap-2">
-        <Text className="text-muted-foreground">还没有插件</Text>
-        <p className="text-sm text-muted-foreground">点击上方按钮创建或导入你的第一个插件</p>
+        <Text className="text-muted-foreground">No skills yet</Text>
+        <p className="text-sm text-muted-foreground">Create or import your first skill above</p>
       </div>
     );
   }
@@ -127,7 +125,7 @@ export function MCPTab({ workspaceId }: { workspaceId: string }) {
     onSuccess: (data: unknown) => {
       queryClient.invalidateQueries({ queryKey: mcpKeys.list(workspaceId) });
       const d = data as { created: number };
-      alert(`成功导入 ${d.created} 个 MCP Server`);
+      alert(`Imported ${d.created} MCP server(s)`);
       setAddOpen(false);
       setJsonText("");
       setJsonError(null);
@@ -159,9 +157,9 @@ export function MCPTab({ workspaceId }: { workspaceId: string }) {
     onSuccess: (data: unknown) => {
       queryClient.invalidateQueries({ queryKey: mcpKeys.list(workspaceId) });
       const d = data as { discovered: number };
-      alert(`发现 ${d.discovered} 个 MCP server，已同步到数据库`);
+      alert(`Discovered ${d.discovered} MCP server(s)`);
     },
-    onError: (e: Error) => alert(`发现失败: ${e.message}`),
+    onError: (e: Error) => alert(`Discovery failed: ${e.message}`),
   });
 
   const toggleMutation = useMutation({
@@ -232,14 +230,14 @@ export function MCPTab({ workspaceId }: { workspaceId: string }) {
   }
 
   if (isLoading) {
-    return <Text className="text-muted-foreground">加载中...</Text>;
+    return <Text className="text-muted-foreground">Loading...</Text>;
   }
 
   return (
     <div className="flex flex-col h-full max-w-3xl">
       <div className="flex items-center justify-between mb-4">
         <p className="text-sm text-muted-foreground">
-          配置 MCP (Model Context Protocol) 服务器，给 AI 提供外部工具
+          Configure MCP servers to give AI access to external tools
         </p>
         <div className="flex gap-2">
           <Button
@@ -249,11 +247,11 @@ export function MCPTab({ workspaceId }: { workspaceId: string }) {
             disabled={discoverMutation.isPending}
           >
             <Search size={14} className="mr-1" />
-            {discoverMutation.isPending ? "扫描中..." : "自动发现"}
+            {discoverMutation.isPending ? "Scanning..." : "Discover"}
           </Button>
           <Button size="sm" onClick={openAdd}>
             <Plus size={14} className="mr-1" />
-            添加 Server
+            Add Server
           </Button>
         </div>
       </div>
@@ -262,7 +260,7 @@ export function MCPTab({ workspaceId }: { workspaceId: string }) {
         <Card className="max-w-lg">
           <Card.Content>
             <p className="text-sm text-muted-foreground py-4">
-              还没有 MCP 服务器。点击 "添加 Server" 粘贴 .mcp.json 配置，或 "自动发现" 从已安装插件中扫描。
+              No MCP servers configured. Click "Add Server" to paste .mcp.json config, or "Discover" to scan installed plugins.
             </p>
           </Card.Content>
         </Card>
@@ -304,26 +302,26 @@ export function MCPTab({ workspaceId }: { workspaceId: string }) {
                         <Button
                           variant="ghost" size="sm"
                           onClick={() => toggleMutation.mutate({ name: srv.name, enabled: !srv.enabled })}
-                          title={srv.enabled ? "禁用" : "启用"}
+                          title={srv.enabled ? "Disable" : "Enable"}
                         >
                           {srv.enabled ? <PowerOff size={14} /> : <Power size={14} />}
                         </Button>
                         <Button
                           variant="ghost" size="sm"
                           onClick={() => testConnection(srv.name)}
-                          title="测试连接"
+                          title="Test Connection"
                         >
                           <RefreshCw size={14} />
                         </Button>
                         {!isDiscovered && (
                           <>
-                            <Button variant="ghost" size="sm" onClick={() => openEdit(srv)} title="编辑">
+                            <Button variant="ghost" size="sm" onClick={() => openEdit(srv)} title="Edit">
                               <Wrench size={14} />
                             </Button>
                             <Button
                               variant="ghost" size="sm"
-                              onClick={async () => { if (await mcpConfirm({ message: `删除 ${srv.name}？`, confirmLabel: "删除" })) deleteMutation.mutate(srv.name); }}
-                              title="删除"
+                              onClick={async () => { if (await mcpConfirm({ message: `Delete ${srv.name}?`, confirmLabel: "Delete" })) deleteMutation.mutate(srv.name); }}
+                              title="Delete"
                             >
                               <Trash2 size={14} />
                             </Button>
@@ -334,8 +332,8 @@ export function MCPTab({ workspaceId }: { workspaceId: string }) {
                 {testR && (
                   <div className={`mt-2 text-xs p-2 border ${testR.ok ? "border-green-600 bg-green-50 text-green-800" : "border-destructive bg-red-50 text-destructive"}`}>
                     {testR.ok
-                      ? `✅ 连接成功${testR.status != null ? ` (HTTP ${testR.status})` : ""}`
-                      : `❌ 连接失败: ${testR.error}`}
+                      ? `Connected${testR.status != null ? ` (HTTP ${testR.status})` : ""}`
+                      : `Failed: ${testR.error}`}
                   </div>
                 )}
               </div>
@@ -349,37 +347,37 @@ export function MCPTab({ workspaceId }: { workspaceId: string }) {
         <Dialog.Content size="md">
           <Dialog.Header>
             <Text as="h3" className="text-base font-bold">
-              {editingName != null ? "编辑 MCP Server" : "添加 MCP Server"}
+              {editingName != null ? "Edit MCP Server" : "Add MCP Server"}
             </Text>
           </Dialog.Header>
 
           <div className="p-4 space-y-3">
             <div>
               <Label htmlFor="mcp-json" className="mb-1 block text-xs">
-                粘贴 .mcp.json 配置
+                Paste .mcp.json config
               </Label>
               <Textarea
                 id="mcp-json"
                 value={jsonText}
                 onChange={(e: ChangeEvent<HTMLTextAreaElement>) => { setJsonText(e.target.value); setJsonError(null); }}
-                placeholder={`{\n  "mcpServers": {\n    "mcp-server-weread": {\n      "args": ["-y", "mcp-server-weread"],\n      "command": "npx",\n      "env": {\n        "CC_ID": "您的ID",\n        "CC_PASSWORD": "您的密码",\n        "CC_URL": "https://cc.chenge.ink"\n      }\n    }\n  }\n}`}
+                placeholder={`{\n  "mcpServers": {\n    "my-server": {\n      "command": "npx",\n      "args": ["-y", "my-mcp-server"],\n      "env": { "API_KEY": "..." }\n    }\n  }\n}`}
                 rows={12}
                 className="font-mono text-xs"
               />
             </div>
             <p className="text-xs text-muted-foreground">
-              支持完整 .mcp.json 格式（含 mcpServers 包裹），或直接粘贴单个 server 配置。一次可导入多个。
+              Accepts full .mcp.json format or a single server config. Multiple servers can be imported at once.
             </p>
             {jsonError && <p className="text-sm text-destructive">{jsonError}</p>}
           </div>
 
           <Dialog.Footer>
             <Button variant="outline" onClick={() => { setAddOpen(false); setEditingName(null); setJsonText(""); setJsonError(null); }}>
-              取消
+              Cancel
             </Button>
             <Button
               onClick={() => {
-                if (!jsonText.trim()) { setJsonError("请输入 JSON 配置"); return; }
+                if (!jsonText.trim()) { setJsonError("Please enter JSON config"); return; }
                 if (editingName != null) {
                   updateJsonMutation.mutate(editingName);
                 } else {
@@ -388,7 +386,7 @@ export function MCPTab({ workspaceId }: { workspaceId: string }) {
               }}
               disabled={!jsonText.trim() || importMutation.isPending || updateJsonMutation.isPending}
             >
-              {importMutation.isPending || updateJsonMutation.isPending ? "保存中..." : editingName != null ? "更新" : "导入"}
+              {importMutation.isPending || updateJsonMutation.isPending ? "Saving..." : editingName != null ? "Update" : "Import"}
             </Button>
           </Dialog.Footer>
         </Dialog.Content>
@@ -399,25 +397,15 @@ export function MCPTab({ workspaceId }: { workspaceId: string }) {
 
 // ── Plugins Tab ──────────────────────────────────────────────────
 
-type PluginSubTab = "installed" | "marketplace";
-
 export function PluginsTab() {
-  const [subTab, setSubTab] = useState<PluginSubTab>("installed");
   const queryClient = useQueryClient();
   const { confirm } = useConfirm();
   const { toast } = useToast();
-
-  // ── Installed ────────────────────────────────────────────────
 
   const { data: installed = [], isLoading: loadingInstalled } = useQuery(pluginInstalledOptions());
 
   const uninstallMutation = useMutation({
     mutationFn: (name: string) => api.post(`/plugins/${name}/uninstall`),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: pluginKeys.all() }),
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: (name: string) => api.post(`/plugins/${name}/update`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: pluginKeys.all() }),
   });
 
@@ -427,397 +415,123 @@ export function PluginsTab() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: pluginKeys.all() }),
   });
 
-  // ── Marketplace ──────────────────────────────────────────────
+  // ── Sync (multi-repo) ──────────────────────────────────────
 
-  const {
-    data: mktStatus,
-    isLoading: loadingMkt,
-  } = useQuery(pluginMarketplaceStatusOptions());
-
-  const [mktImportUrl, setMktImportUrl] = useState("");
-  const [mktImportError, setMktImportError] = useState<string | null>(null);
-
-  const mktImportMutation = useMutation({
-    mutationFn: (url: string) => api.post("/plugins/marketplace/import", { url }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: pluginKeys.marketplace() });
-      setMktImportUrl("");
-      setMktImportError(null);
-    },
-    onError: (e: Error) => setMktImportError(e.message),
+  type SyncResult = { repo_url: string; ok: boolean; commit?: string; synced?: string[]; error?: string };
+  type SyncConfig = { repo_urls: string[]; last_synced: string | null; results: SyncResult[] };
+  const { data: syncConfig } = useQuery({
+    queryKey: [...pluginKeys.all(), "sync-config"],
+    queryFn: () => api.get<SyncConfig>("/plugins/sync-repo/config"),
   });
 
-  const mktRemoveMutation = useMutation({
-    mutationFn: () => api.delete("/plugins/marketplace"),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: pluginKeys.marketplace() });
-    },
-  });
+  const [urlsInput, setUrlsInput] = useState("");
+  const [editing, setEditing] = useState(false);
 
-  // Per-plugin install tracking — supports concurrent installs
-  const [installingSet, setInstallingSet] = useState<Set<string>>(new Set());
-
-  const installPlugin = useCallback((name: string) => {
-    setInstallingSet((prev) => new Set(prev).add(name));
-    api.post(`/plugins/marketplace/install/${name}`)
-      .then(() => {
-        queryClient.invalidateQueries({ queryKey: pluginKeys.all() });
-        toast(`${name} 安装成功`, "success");
-      })
-      .catch((e: Error) => {
-        toast(`${name} 安装失败: ${e.message}`, "error");
-      })
-      .finally(() => {
-        setInstallingSet((prev) => { const s = new Set(prev); s.delete(name); return s; });
-      });
-  }, [queryClient, toast]);
-
-  // ── Plugin import state & dialog ────────────────────────────
-
-  const [pluginImportOpen, setPluginImportOpen] = useState(false);
-  const [pluginImportUrl, setPluginImportUrl] = useState("");
-  const [pluginImportError, setPluginImportError] = useState<string | null>(null);
-
-  const pluginImportMutation = useMutation({
-    mutationFn: (url: string) => api.post("/plugins/import", { url }),
-    onSuccess: () => {
+  const syncMutation = useMutation({
+    mutationFn: (repo_urls?: string[] | void) =>
+      api.post<{ ok: boolean; count: number; results: SyncResult[] }>("/plugins/sync-repo", repo_urls ? { repo_urls } : {}),
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: pluginKeys.all() });
-      setPluginImportOpen(false);
-      setPluginImportUrl("");
-      setPluginImportError(null);
+      const failed = data.results.filter(r => !r.ok);
+      toast(failed.length ? `Synced ${data.count} plugins, ${failed.length} repo(s) failed` : `Synced ${data.count} plugins`, failed.length ? "error" : "success");
+      setEditing(false);
     },
-    onError: (e: Error) => setPluginImportError(e.message),
+    onError: (e: Error) => toast(`Sync failed: ${e.message}`, "error"),
   });
 
-  // ── Render ───────────────────────────────────────────────────
+  const saveConfigMutation = useMutation({
+    mutationFn: (repo_urls: string[]) => api.post("/plugins/sync-repo/config", { repo_urls }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [...pluginKeys.all(), "sync-config"] });
+      const urls = urlsInput.split("\n").map(u => u.trim()).filter(Boolean);
+      syncMutation.mutate(urls);
+    },
+    onError: (e: Error) => toast(`Save failed: ${e.message}`, "error"),
+  });
 
-  const [mktSearch, setMktSearch] = useState("");
-  const mktPlugins = mktStatus?.plugins ?? [];
+  const hasRepos = (syncConfig?.repo_urls?.length ?? 0) > 0;
+  const isSyncing = syncMutation.isPending || saveConfigMutation.isPending;
 
   return (
     <div className="flex flex-col h-full max-w-4xl">
-      {/* Sub-tabs */}
-      <div className="flex gap-2 mb-4">
-        {([
-          { id: "installed" as const, label: `已安装 (${installed.length})` },
-          { id: "marketplace" as const, label: `市场${mktStatus?.imported ? " ✓" : ""}` },
-        ]).map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setSubTab(t.id)}
-            className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-2 transition-all ${
-              subTab === t.id
-                ? "border-border bg-primary shadow-[3px_3px_0_0_#000] text-foreground"
-                : "border-border bg-background text-muted-foreground hover:bg-muted hover:shadow-[2px_2px_0_0_#000]"
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      {/* ═══ Installed ═══ */}
-      {subTab === "installed" && (
-        <div className="flex-1 overflow-auto">
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-sm text-muted-foreground">已安装的插件包</p>
-            <Button size="sm" onClick={() => { setPluginImportOpen(true); setPluginImportUrl(""); setPluginImportError(null); }}>
-              <Download size={14} className="mr-1" />
-              导入插件
-            </Button>
-          </div>
-
-          {loadingInstalled ? (
-            <Text className="text-muted-foreground">加载中...</Text>
-          ) : installed.length === 0 ? (
-            <Card className="max-w-lg">
-              <Card.Content>
-                <p className="text-sm text-muted-foreground py-4">
-                  还没有安装任何插件。从 GitHub 导入，或先导入市场后从市场安装。
-                </p>
-              </Card.Content>
-            </Card>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {installed.map((p) => (
-                <div key={p.name} className="border-2 border-border bg-card p-4">
-                  <div className="flex items-start justify-between">
-                    <div className="min-w-0 overflow-hidden">
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-medium">{p.name}</p>
-                        <Badge variant="surface" size="sm">v{p.version}</Badge>
-                        {p.enabled
-                          ? <CheckCircle size={12} className="text-green-600" />
-                          : <AlertTriangle size={12} className="text-muted-foreground" />
-                        }
-                      </div>
-                      {p.description && (
-                        <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                          {p.description}
-                        </p>
-                      )}
-                      {p.source_url && (
-                        <a href={p.source_url} target="_blank" rel="noopener noreferrer" className="text-xs text-muted-foreground mt-1 font-mono truncate block hover:text-foreground hover:underline">{p.source_url}</a>
-                      )}
-                      <div className="flex gap-2 mt-2">
-                        {p.commands.length > 0 && (
-                          <span className="text-xs text-muted-foreground">{p.commands.length} commands</span>
-                        )}
-                        {p.skills.length > 0 && (
-                          <span className="text-xs text-muted-foreground">{p.skills.length} skills</span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1 shrink-0 ml-2">
-                      <Button
-                        variant="ghost" size="sm"
-                        onClick={() => toggleMutation.mutate({ name: p.name, enable: !p.enabled })}
-                        title={p.enabled ? "禁用" : "启用"}
-                      >
-                        {p.enabled ? <PowerOff size={14} /> : <Power size={14} />}
-                      </Button>
-                      <Button
-                        variant="ghost" size="sm"
-                        onClick={() => updateMutation.mutate(p.name)}
-                        title="更新"
-                      >
-                        <RefreshCw size={14} />
-                      </Button>
-                      <Button
-                        variant="ghost" size="sm"
-                        onClick={async () => { if (await confirm({ message: `确定要卸载 ${p.name}？`, confirmLabel: "卸载" })) uninstallMutation.mutate(p.name); }}
-                        title="卸载"
-                      >
-                        <Trash2 size={14} />
-                      </Button>
-                    </div>
-                  </div>
-                </div>
+      {/* ── Repo URLs + sync ── */}
+      <div className="border border-border bg-card p-2.5 mb-3">
+        {hasRepos && !editing ? (
+          <div className="flex items-center gap-2">
+            <Plug size={14} className="text-muted-foreground shrink-0" />
+            <div className="flex-1 min-w-0">
+              {syncConfig!.repo_urls.map(u => (
+                <p key={u} className="text-[11px] font-mono text-muted-foreground truncate">{u}</p>
               ))}
             </div>
-          )}
-        </div>
-      )}
-
-      {/* ═══ Marketplace ═══ */}
-      {subTab === "marketplace" && (
-        <div className="flex-1 overflow-auto">
-          {loadingMkt ? (
-            <Text className="text-muted-foreground">加载中...</Text>
-          ) : !mktStatus?.imported ? (
-            /* ── Not imported yet: show import form ── */
-            <Card className="max-w-lg">
-              <Card.Header>
-                <Card.Title className="flex items-center gap-2">
-                  <Plug size={16} />
-                  导入市场仓库
-                </Card.Title>
-              </Card.Header>
-              <Card.Content>
-                <p className="text-sm text-muted-foreground mb-3">
-                  输入包含 <code className="text-xs bg-muted px-1 rounded">marketplace.json</code> 的 GitHub 仓库地址。
-                </p>
-
-                <details className="mb-3">
-                  <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">
-                    marketplace.json 格式示例
-                  </summary>
-                  <pre className="mt-2 text-xs font-mono bg-muted/50 p-3 overflow-auto max-h-48 border border-border whitespace-pre-wrap">
-{`{
-  "plugins": [
-    {
-      "name": "SuperPmAgent-coding",
-      "source": "https://github.com/user/SuperPmAgent-plugins",
-      "subdir": "SuperPmAgent-coding",
-      "version": "1.0.0",
-      "description": "编码 skill 库",
-      "author": "SuperPmAgent Team",
-      "skills": ["coding", "run-tests", "submit-pr"]
-    },
-    {
-      "name": "SuperPmAgent-core",
-      "source": "https://github.com/user/SuperPmAgent-plugins",
-      "subdir": "SuperPmAgent-core",
-      "version": "1.0.0",
-      "description": "编排核心"
-    }
-  ]
-}`}</pre>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    <strong>name</strong>: 插件名 · <strong>source</strong>: GitHub 仓库 · <strong>subdir</strong>: 仓库中插件子目录
-                  </p>
-                </details>
-
-                <div className="space-y-3">
-                  <div>
-                    <Label htmlFor="mkt-import-url" className="mb-1 block text-xs">GitHub 仓库 URL *</Label>
-                    <Input
-                      id="mkt-import-url"
-                      value={mktImportUrl}
-                      onChange={(e) => { setMktImportUrl(e.target.value); setMktImportError(null); }}
-                      placeholder="https://github.com/user/SuperPmAgent-marketplace"
-                    />
-                  </div>
-                  {mktImportError && <p className="text-sm text-destructive">{mktImportError}</p>}
-                  <Button
-                    onClick={() => {
-                      if (!mktImportUrl.trim()) { setMktImportError("请输入 GitHub URL"); return; }
-                      mktImportMutation.mutate(mktImportUrl.trim());
-                    }}
-                    disabled={!mktImportUrl.trim() || mktImportMutation.isPending}
-                  >
-                    {mktImportMutation.isPending ? "导入中..." : "导入市场"}
-                  </Button>
-                </div>
-              </Card.Content>
-            </Card>
-          ) : (
-            /* ── Imported: show marketplace plugins ── */
-            <div className="flex flex-col h-full">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2 min-w-0">
-                  <Plug size={16} className="text-muted-foreground shrink-0" />
-                  <p className="text-xs font-mono text-muted-foreground truncate">
-                    {mktStatus.repo_url}
-                  </p>
-                </div>
-                <div className="flex gap-2 shrink-0">
-                  <Button
-                    variant="outline" size="sm"
-                    onClick={async () => { if (await confirm({ message: "确定要移除市场仓库？", confirmLabel: "移除" })) mktRemoveMutation.mutate(); }}
-                  >
-                    <Trash2 size={14} className="mr-1" />
-                    移除
-                  </Button>
-                </div>
-              </div>
-
-              <div className="relative mb-3">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
-                <Input
-                  placeholder="搜索市场..."
-                  value={mktSearch}
-                  onChange={(e) => setMktSearch(e.target.value)}
-                  className="pl-9"
-                />
-              </div>
-
-              {mktPlugins.length === 0 ? (
-                <Card className="max-w-lg">
-                  <Card.Content>
-                    <p className="text-sm text-muted-foreground py-4">
-                      市场中暂无可用插件。
-                    </p>
-                  </Card.Content>
-                </Card>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 overflow-auto">
-                  {mktPlugins
-                    .filter((p) => {
-                      if (!mktSearch) return true;
-                      const q = mktSearch.toLowerCase();
-                      return p.name.toLowerCase().includes(q)
-                        || (p.description && p.description.toLowerCase().includes(q));
-                    })
-                    .map((p) => (
-                      <div key={p.name} className="border-2 border-border bg-card p-4">
-                        <div className="flex items-start justify-between">
-                          <div className="min-w-0 overflow-hidden">
-                            <div className="flex items-center gap-2">
-                              <p className="text-sm font-medium">{p.name}</p>
-                              <Badge variant="surface" size="sm">v{p.version}</Badge>
-                            </div>
-                            {p.description && (
-                              <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                                {p.description}
-                              </p>
-                            )}
-                            {p.author && (
-                              <p className="text-xs text-muted-foreground mt-1">作者: {p.author}</p>
-                            )}
-                            {p.source_url && (
-                              <Tooltip>
-                                <Tooltip.Trigger asChild>
-                                  <a href={p.source_url} target="_blank" rel="noopener noreferrer" className="text-xs text-muted-foreground mt-1 font-mono truncate block text-left hover:text-foreground hover:underline cursor-pointer">{p.source_url}</a>
-                                </Tooltip.Trigger>
-                                <Tooltip.Content variant="solid" className="max-w-xs break-all">{p.source_url}</Tooltip.Content>
-                              </Tooltip>
-                            )}
-                            <div className="flex gap-2 mt-2">
-                              {p.skills.length > 0 && (
-                                <span className="text-xs text-muted-foreground">{p.skills.length} skills</span>
-                              )}
-                            </div>
-                          </div>
-                          <div className="shrink-0 ml-2">
-                            {p.installed ? (
-                              <Badge size="sm" className="bg-green-600 text-white">
-                                <CheckCircle size={12} className="mr-1 inline" />已安装
-                              </Badge>
-                            ) : (
-                              <div className="flex flex-col items-end gap-1">
-                                <Button
-                                  size="sm"
-                                  onClick={() => installPlugin(p.name)}
-                                  disabled={installingSet.has(p.name)}
-                                >
-                                  {installingSet.has(p.name) ? (
-                                    <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-foreground border-t-transparent mr-1" />
-                                  ) : (
-                                    <Download size={14} className="mr-1" />
-                                  )}
-                                  {installingSet.has(p.name) ? "安装中..." : "安装"}
-                                </Button>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Dialog: import plugin from GitHub */}
-      <Dialog open={pluginImportOpen} onOpenChange={(v) => { if (!v) { setPluginImportOpen(false); setPluginImportError(null); } }}>
-        <Dialog.Content size="md">
-          <Dialog.Header>
-            <Text as="h3" className="text-base font-bold">导入插件</Text>
-          </Dialog.Header>
-          <div className="p-4 space-y-3">
-            <div>
-              <Label htmlFor="plugin-import-url" className="mb-1 block text-xs">GitHub URL *</Label>
-              <Input
-                id="plugin-import-url"
-                value={pluginImportUrl}
-                onChange={(e) => { setPluginImportUrl(e.target.value); setPluginImportError(null); }}
-                placeholder="https://github.com/user/SuperPmAgent-plugins/tree/main/SuperPmAgent-coding"
-              />
-            </div>
-            <p className="text-xs text-muted-foreground">
-              仓库根目录需包含 <code>.claude-plugin/plugin.json</code>，或指定子目录路径。
-            </p>
-            {pluginImportError && <p className="text-sm text-destructive">{pluginImportError}</p>}
+            <Button variant="ghost" size="sm" onClick={() => { setUrlsInput(syncConfig!.repo_urls.join("\n")); setEditing(true); }}>
+              <Wrench size={12} />
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => syncMutation.mutate()} disabled={isSyncing}>
+              <RefreshCw size={12} className={isSyncing ? "animate-spin" : ""} />
+              {isSyncing ? "Syncing..." : "Sync All"}
+            </Button>
           </div>
-          <Dialog.Footer>
-            <Button variant="outline" onClick={() => { setPluginImportOpen(false); setPluginImportError(null); }}>
-              取消
-            </Button>
-            <Button
-              onClick={() => {
-                if (!pluginImportUrl.trim()) { setPluginImportError("请输入 URL"); return; }
-                pluginImportMutation.mutate(pluginImportUrl.trim());
-              }}
-              disabled={pluginImportMutation.isPending}
-            >
-              {pluginImportMutation.isPending ? "导入中..." : "导入"}
-            </Button>
-          </Dialog.Footer>
-        </Dialog.Content>
-      </Dialog>
+        ) : (
+          <div className="space-y-2">
+            <textarea
+              value={urlsInput}
+              onChange={(e) => setUrlsInput(e.target.value)}
+              placeholder={"https://github.com/user/plugins-repo\nhttps://github.com/other/more-plugins"}
+              className="w-full text-[11px] font-mono bg-background border border-border p-2 resize-none outline-none focus:border-foreground"
+              rows={3}
+            />
+            <div className="flex justify-end gap-2">
+              {editing && <Button variant="ghost" size="sm" onClick={() => setEditing(false)}>Cancel</Button>}
+              <Button size="sm" onClick={() => {
+                const urls = urlsInput.split("\n").map(u => u.trim()).filter(Boolean);
+                if (!urls.length) return;
+                saveConfigMutation.mutate(urls);
+              }} disabled={!urlsInput.trim() || isSyncing}>
+                {isSyncing ? "Syncing..." : "Save & Sync"}
+              </Button>
+            </div>
+          </div>
+        )}
+        {hasRepos && syncConfig!.last_synced && !editing && (
+          <p className="text-[10px] text-muted-foreground mt-1 ml-5">
+            Last synced: {new Date(syncConfig!.last_synced).toLocaleString()}
+          </p>
+        )}
+      </div>
+
+      {/* ── Installed ── */}
+      <p className="text-xs text-muted-foreground mb-2">Installed ({installed.length})</p>
+      <div className="flex-1 overflow-auto">
+        {loadingInstalled ? (
+          <Text className="text-muted-foreground text-sm">Loading...</Text>
+        ) : installed.length === 0 ? (
+          <p className="text-sm text-muted-foreground py-6 text-center">No plugins installed. Add repo URLs above and sync.</p>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            {installed.map((p) => (
+              <div key={p.name} className="border border-border bg-card p-2.5 flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-medium truncate">{p.name}</span>
+                    <span className="text-[10px] text-muted-foreground">v{p.version}</span>
+                    {p.enabled ? <CheckCircle size={10} className="text-green-600" /> : <AlertTriangle size={10} className="text-muted-foreground" />}
+                  </div>
+                  {p.description && <p className="text-[10px] text-muted-foreground truncate">{p.description}</p>}
+                </div>
+                <div className="flex items-center gap-0.5 shrink-0">
+                  <Button variant="ghost" size="sm" onClick={() => toggleMutation.mutate({ name: p.name, enable: !p.enabled })} title={p.enabled ? "Disable" : "Enable"}>
+                    {p.enabled ? <PowerOff size={12} /> : <Power size={12} />}
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={async () => { if (await confirm({ message: `Uninstall ${p.name}?`, confirmLabel: "Uninstall" })) uninstallMutation.mutate(p.name); }} title="Uninstall">
+                    <Trash2 size={12} />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

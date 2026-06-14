@@ -12,14 +12,14 @@ interface SkillCardProps {
 
 export function SkillCard({ skill, onClick, onDelete }: SkillCardProps) {
   return (
-    <Card className="cursor-pointer hover:border-primary hover:shadow-[4px_4px_0_0_#000] transition-all">
+    <Card className="cursor-pointer hover:bg-muted/30 transition-all">
       <Card.Content>
-        <div className="flex items-start gap-3">
+        <div className="flex items-start gap-2.5">
           <div
-            className="flex items-center justify-center w-9 h-9 border-2 border-border bg-primary shrink-0 shadow-[2px_2px_0_0_#000]"
+            className="flex items-center justify-center w-7 h-7 bg-primary shrink-0 rounded-sm"
             onClick={onClick}
           >
-            <Wrench size={18} />
+            <Wrench size={14} />
           </div>
           <div className="flex-1 min-w-0" onClick={onClick}>
             <div className="flex items-center gap-2 mb-1">
@@ -46,7 +46,7 @@ export function SkillCard({ skill, onClick, onDelete }: SkillCardProps) {
                 e.stopPropagation();
                 onDelete(skill);
               }}
-              title="删除"
+              title="Delete"
               className="shrink-0"
             >
               <Trash2 size={14} />

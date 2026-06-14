@@ -70,13 +70,13 @@ export function CreateSkillDialog({ workspaceId }: CreateSkillDialogProps) {
   function handleSubmit() {
     if (tab === "manual") {
       if (!name.trim()) {
-        setError("请输入技能名称");
+        setError("Please enter skill name");
         return;
       }
       createMutation.mutate();
     } else {
       if (!importUrl.trim()) {
-        setError("请输入 GitHub URL");
+        setError("Please enter GitHub URL");
         return;
       }
       importMutation.mutate();
@@ -88,43 +88,43 @@ export function CreateSkillDialog({ workspaceId }: CreateSkillDialogProps) {
   return (
     <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) resetForm(); }}>
       <Dialog.Trigger>
-        <Button>+ 新建 Skill</Button>
+        <Button>+ New Skill</Button>
       </Dialog.Trigger>
       <Dialog.Content size="md">
         <Dialog.Header>
-          <Text as="h3" className="text-base font-bold">新建 Skill</Text>
+          <Text as="h3" className="text-base font-bold">New Skill</Text>
         </Dialog.Header>
 
         <div className="p-4 space-y-4">
           <Tabs value={tab} onValueChange={setTab}>
             <Tabs.List>
-              <Tabs.Trigger value="manual">手动创建</Tabs.Trigger>
-              <Tabs.Trigger value="import">从 GitHub 导入</Tabs.Trigger>
+              <Tabs.Trigger value="manual">Manual</Tabs.Trigger>
+              <Tabs.Trigger value="import">Import from GitHub</Tabs.Trigger>
             </Tabs.List>
 
             <Tabs.Content value="manual">
               <div className="space-y-3 mt-3">
                 <div>
-                  <label className="text-sm font-medium mb-1 block">名称 *</label>
+                  <label className="text-sm font-medium mb-1 block">Name *</label>
                   <Input
-                    placeholder="例如: code-review-skill"
+                    placeholder="e.g. code-review-skill"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium mb-1 block">描述</label>
+                  <label className="text-sm font-medium mb-1 block">Description</label>
                   <Textarea
-                    placeholder="技能的简要描述..."
+                    placeholder="Brief description of the skill..."
                     value={description}
                     onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setDescription(e.target.value)}
                     rows={2}
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium mb-1 block">SKILL.md 内容</label>
+                  <label className="text-sm font-medium mb-1 block">SKILL.md Content</label>
                   <Textarea
-                    placeholder="# My Skill&#10;&#10;描述技能的用途和使用方法..."
+                    placeholder="# My Skill&#10;&#10;Describe the skill's purpose and usage..."
                     value={skillMd}
                     onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setSkillMd(e.target.value)}
                     rows={6}
@@ -144,7 +144,7 @@ export function CreateSkillDialog({ workspaceId }: CreateSkillDialogProps) {
                   />
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  支持导入 GitHub 仓库或子目录中的技能文件。需要工作区配置 GITHUB_TOKEN。
+                  Import skill files from a GitHub repo or subdirectory. Requires GITHUB_TOKEN in workspace.
                 </p>
               </div>
             </Tabs.Content>
@@ -157,10 +157,10 @@ export function CreateSkillDialog({ workspaceId }: CreateSkillDialogProps) {
 
         <Dialog.Footer>
           <Button variant="outline" onClick={() => setOpen(false)}>
-            取消
+            Cancel
           </Button>
           <Button onClick={handleSubmit} disabled={isPending}>
-            {isPending ? "创建中..." : tab === "manual" ? "创建 Skill" : "导入 Skill"}
+            {isPending ? "Creating..." : tab === "manual" ? "Create Skill" : "Import Skill"}
           </Button>
         </Dialog.Footer>
       </Dialog.Content>

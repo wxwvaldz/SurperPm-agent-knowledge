@@ -56,7 +56,7 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
             <Dialog.Header>
               <span className="flex items-center gap-2 text-sm font-bold">
                 <AlertTriangle size={16} />
-                {current.title ?? "确认操作"}
+                {current.title ?? "Confirm"}
               </span>
             </Dialog.Header>
             <div className="px-4 py-4">
@@ -68,14 +68,14 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
                 size="sm"
                 onClick={() => handleResolve(current.id, false)}
               >
-                {current.cancelLabel ?? "取消"}
+                {current.cancelLabel ?? "Cancel"}
               </Button>
               <Button
                 size="sm"
                 className={current.destructive !== false ? "bg-red-600 text-white hover:bg-red-700 border-red-700" : ""}
                 onClick={() => handleResolve(current.id, true)}
               >
-                {current.confirmLabel ?? "确认"}
+                {current.confirmLabel ?? "OK"}
               </Button>
             </Dialog.Footer>
           </Dialog.Content>

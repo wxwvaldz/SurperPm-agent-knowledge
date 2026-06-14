@@ -9,6 +9,7 @@ interface ResizableSplitProps {
   defaultLeftPercent?: number;
   minLeftPercent?: number;
   maxLeftPercent?: number;
+  initialCollapsed?: Collapsed;
 }
 
 export function ResizableSplit({
@@ -17,9 +18,10 @@ export function ResizableSplit({
   defaultLeftPercent = 70,
   minLeftPercent = 30,
   maxLeftPercent = 80,
+  initialCollapsed = null,
 }: ResizableSplitProps) {
   const [leftPercent, setLeftPercent] = useState(defaultLeftPercent);
-  const [collapsed, setCollapsed] = useState<Collapsed>(null);
+  const [collapsed, setCollapsed] = useState<Collapsed>(initialCollapsed);
   const containerRef = useRef<HTMLDivElement>(null);
   const dragging = useRef(false);
 
@@ -70,7 +72,7 @@ export function ResizableSplit({
               <button
                 type="button"
                 onClick={() => setCollapsed("left")}
-                title="折叠左侧面板"
+                title="Collapse left"
                 className="flex h-4 w-4 items-center justify-center text-muted-foreground hover:text-foreground"
               >
                 <ChevronLeft size={12} />
@@ -78,7 +80,7 @@ export function ResizableSplit({
               <button
                 type="button"
                 onClick={() => setCollapsed("right")}
-                title="折叠右侧面板"
+                title="Collapse right"
                 className="flex h-4 w-4 items-center justify-center text-muted-foreground hover:text-foreground"
               >
                 <ChevronRight size={12} />
@@ -88,7 +90,7 @@ export function ResizableSplit({
             <button
               type="button"
               onClick={() => setCollapsed(null)}
-              title="展开面板"
+              title="Expand"
               className="flex h-4 w-4 items-center justify-center text-muted-foreground hover:text-foreground"
             >
               {collapsed === "left" ? (

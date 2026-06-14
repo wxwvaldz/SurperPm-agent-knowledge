@@ -501,7 +501,7 @@ export function BrowserPanel({ target, onScreenshotCapture }: BrowserPanelProps)
               }`}
               onClick={() => switchTab(tab.id)}
             >
-              <span className="truncate">{tab.title || tab.url || "新标签"}</span>
+              <span className="truncate">{tab.title || tab.url || "New tab"}</span>
               {tabs.length > 1 && (
                 <button
                   className="ml-auto shrink-0 hover:text-red-500 transition-colors"
@@ -518,7 +518,7 @@ export function BrowserPanel({ target, onScreenshotCapture }: BrowserPanelProps)
           <button
             className="px-2 py-1.5 text-muted-foreground hover:text-foreground transition-colors"
             onClick={newTab}
-            title="新标签"
+            title="New tab"
           >
             <Plus size={14} />
           </button>
@@ -531,7 +531,7 @@ export function BrowserPanel({ target, onScreenshotCapture }: BrowserPanelProps)
           variant="outline"
           size="sm"
           onClick={() => send({ type: "back" })}
-          title="后退"
+          title="Back"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
         </Button>
@@ -539,7 +539,7 @@ export function BrowserPanel({ target, onScreenshotCapture }: BrowserPanelProps)
           variant="outline"
           size="sm"
           onClick={() => send({ type: "forward" })}
-          title="前进"
+          title="Forward"
         >
           <ArrowRight className="w-3.5 h-3.5" />
         </Button>
@@ -547,7 +547,7 @@ export function BrowserPanel({ target, onScreenshotCapture }: BrowserPanelProps)
           variant="outline"
           size="sm"
           onClick={() => send({ type: "reload" })}
-          title="刷新"
+          title="Reload"
         >
           <RotateCw className="w-3.5 h-3.5" />
         </Button>
@@ -559,7 +559,7 @@ export function BrowserPanel({ target, onScreenshotCapture }: BrowserPanelProps)
             setSelStart(null);
             setSelEnd(null);
           }}
-          title="截图问答"
+          title="Screenshot"
         >
           <Scissors className="w-3.5 h-3.5" />
         </Button>
@@ -577,16 +577,16 @@ export function BrowserPanel({ target, onScreenshotCapture }: BrowserPanelProps)
               clearDoodle();
             }
           }}
-          title="涂鸦标注"
+          title="Annotate"
         >
           <Pencil className="w-3.5 h-3.5" />
         </Button>
         {isDoodling && (
           <>
-            <Button size="sm" onClick={sendDoodle} title="添加到对话">
+            <Button size="sm" onClick={sendDoodle} title="Add to chat">
               <Check className="w-3.5 h-3.5" />
             </Button>
-            <Button variant="outline" size="sm" onClick={clearDoodle} title="清除涂鸦">
+            <Button variant="outline" size="sm" onClick={clearDoodle} title="Clear">
               <Trash2 className="w-3.5 h-3.5" />
             </Button>
           </>
@@ -596,7 +596,7 @@ export function BrowserPanel({ target, onScreenshotCapture }: BrowserPanelProps)
           size="sm"
           onClick={zoomOut}
           disabled={!isZoomed}
-          title="缩小"
+          title="Zoom out"
         >
           <ZoomOut className="w-3.5 h-3.5" />
         </Button>
@@ -604,7 +604,7 @@ export function BrowserPanel({ target, onScreenshotCapture }: BrowserPanelProps)
           variant="outline"
           size="sm"
           onClick={isZoomed ? zoomReset : zoomIn}
-          title={isZoomed ? "重置缩放" : "放大"}
+          title={isZoomed ? "Reset zoom" : "Zoom in"}
         >
           <span className="text-[10px] font-mono tabular-nums w-7 text-center">
             {zoom}x
@@ -615,7 +615,7 @@ export function BrowserPanel({ target, onScreenshotCapture }: BrowserPanelProps)
           size="sm"
           onClick={zoomIn}
           disabled={zoom >= MAX_ZOOM}
-          title="放大"
+          title="Zoom in"
         >
           <ZoomIn className="w-3.5 h-3.5" />
         </Button>
@@ -624,7 +624,7 @@ export function BrowserPanel({ target, onScreenshotCapture }: BrowserPanelProps)
             variant={panMode ? "default" : "outline"}
             size="sm"
             onClick={togglePanMode}
-            title={panMode ? "拖拽模式 · 点击切换为操作模式" : "操作模式 · 点击切换为拖拽模式"}
+            title={panMode ? "Drag mode" : "Interact mode"}
           >
             {panMode ? <Hand className="w-3.5 h-3.5" /> : <MousePointer2 className="w-3.5 h-3.5" />}
           </Button>
@@ -634,7 +634,7 @@ export function BrowserPanel({ target, onScreenshotCapture }: BrowserPanelProps)
             variant="outline"
             size="sm"
             onClick={() => setShowBookmarks((s) => !s)}
-            title="常用网址"
+            title="Bookmarks"
           >
             <BookMarked className="w-3.5 h-3.5" />
           </Button>
@@ -673,7 +673,7 @@ export function BrowserPanel({ target, onScreenshotCapture }: BrowserPanelProps)
                       <button
                         onClick={() => removeBookmark(url)}
                         className="shrink-0 text-muted-foreground hover:text-red-500"
-                        title="删除"
+                        title="Delete"
                       >
                         <X size={12} />
                       </button>
@@ -688,7 +688,7 @@ export function BrowserPanel({ target, onScreenshotCapture }: BrowserPanelProps)
                   className="w-full flex items-center gap-2 px-3 py-1.5 text-left text-muted-foreground hover:bg-muted/50 disabled:opacity-40 disabled:hover:bg-transparent"
                 >
                   <Plus size={12} />
-                  <span className="truncate">加入当前网址</span>
+                  <span className="truncate">Add current URL</span>
                 </button>
               </div>
             </div>
@@ -705,7 +705,7 @@ export function BrowserPanel({ target, onScreenshotCapture }: BrowserPanelProps)
             type="text"
             value={urlInput}
             onChange={(e) => setUrlInput(e.target.value)}
-            placeholder={currentUrl || "输入网址..."}
+            placeholder={currentUrl || "Enter URL..."}
             className="flex-1 text-xs font-mono"
           />
           <Button type="submit" size="sm" disabled={!urlInput.trim()}>
@@ -715,7 +715,7 @@ export function BrowserPanel({ target, onScreenshotCapture }: BrowserPanelProps)
         <div className="flex items-center gap-1">
           <span
             className={`w-2 h-2 rounded-full ${connected ? "bg-green-500" : "bg-red-500"}`}
-            title={connected ? "已连接" : "未连接"}
+            title={connected ? "Connected" : "Disconnected"}
           />
         </div>
       </div>
@@ -734,12 +734,12 @@ export function BrowserPanel({ target, onScreenshotCapture }: BrowserPanelProps)
         )}
         {isSelecting && (
           <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10 bg-blue-600 text-white text-xs px-3 py-1 rounded">
-            拖拽选择截图区域 · 按 ESC 取消
+            Drag to select · ESC to cancel
           </div>
         )}
         {isDoodling && (
           <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20 bg-red-600 text-white text-xs px-3 py-1 rounded">
-            涂鸦标注 · 点 ✓ 添加到对话
+            Annotate · click ✓ to add
           </div>
         )}
         {imageUrl ? (
@@ -756,14 +756,12 @@ export function BrowserPanel({ target, onScreenshotCapture }: BrowserPanelProps)
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
-            onClick={handleClick}
-            onDoubleClick={handleDblClick}
             onWheel={handleWheel}
             onContextMenu={handleContextMenu}
           />
         ) : (
           <div className="flex items-center justify-center h-full text-neutral-500 text-sm">
-            {connected ? "等待画面..." : "正在连接共享浏览器..."}
+            {connected ? "Waiting..." : "Connecting..."}
           </div>
         )}
         {selRect && selRect.width > 2 && selRect.height > 2 && (

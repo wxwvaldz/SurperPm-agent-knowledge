@@ -13,6 +13,7 @@ import {
   BookOpen,
   FileText,
   Folder,
+  RefreshCw,
   FolderOpen,
   Search,
   Pencil,
@@ -49,9 +50,10 @@ export default function KnowledgePage() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center gap-3 px-6 py-5 border-b-2 border-border bg-card/50 shrink-0">
-        <Text as="h2" className="text-2xl">Learning</Text>
+      <div className="flex items-center gap-2 px-4 py-2.5 border-b border-border bg-card/50 shrink-0">
+        <Text as="h2" className="text-sm font-bold">Learning</Text>
         <div className="flex-1" />
+        <SyncButton />
         <div className="flex border-2 border-border">
           <button
             onClick={() => setActiveTab("knowledge")}
@@ -79,14 +81,14 @@ export default function KnowledgePage() {
       </div>
 
       {activeTab === "learning" ? (
-        <div className="flex-1 overflow-auto p-6">
+        <div className="flex-1 overflow-auto p-4">
           <LearningRecords />
         </div>
       ) : (
       <div className="flex flex-1 min-h-0">
         <aside className="w-72 border-r-2 border-border overflow-y-auto p-4 bg-card nb-scrollbar">
           <p className="text-xs font-head font-bold uppercase tracking-wider text-muted-foreground mb-3">
-            文件目录
+            Files
           </p>
           <div className="relative mb-3">
             <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -94,7 +96,7 @@ export default function KnowledgePage() {
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="搜索文件..."
+              placeholder="Search files..."
               className="pl-8 text-xs h-8"
             />
             {searchTerm && (
@@ -114,7 +116,7 @@ export default function KnowledgePage() {
         </aside>
 
         {/* main content */}
-        <main className="flex-1 overflow-hidden p-6">
+        <main className="flex-1 overflow-hidden p-4">
           {selectedPath ? (
             <FileContent path={selectedPath} />
           ) : (
@@ -123,10 +125,10 @@ export default function KnowledgePage() {
                 <Empty.Icon>
                   <BookOpen size={48} className="text-muted-foreground/30" />
                 </Empty.Icon>
-                <Empty.Title>暂无内容</Empty.Title>
+                <Empty.Title>No Content</Empty.Title>
                 <Empty.Separator />
                 <Empty.Description>
-                  从左侧目录树选择一个文件，内容将在此处显示。
+                  Select a file from the sidebar to view its content.
                 </Empty.Description>
               </Empty.Content>
             </Empty>
@@ -156,7 +158,7 @@ function KnowledgeTree({
     return (
       <div className="flex flex-col items-center gap-2 py-10 text-xs text-muted-foreground">
         <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-foreground border-t-transparent" />
-        正在加载文件树...
+        Loading file tree...
       </div>
     );
   }
@@ -164,7 +166,7 @@ function KnowledgeTree({
   if (error) {
     return (
       <div className="border-2 border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">
-        加载失败: {(error as Error).message}
+        Load failed: {(error as Error).message}
       </div>
     );
   }
@@ -177,10 +179,10 @@ function KnowledgeTree({
             <Empty.Icon>
               <Inbox size={28} className="text-muted-foreground/30" />
             </Empty.Icon>
-            <Empty.Title className="text-sm">暂无知识文件</Empty.Title>
+            <Empty.Title className="text-sm">No Files</Empty.Title>
             <Empty.Separator />
             <Empty.Description className="text-xs">
-              将文件推送到知识库仓库即可开始使用。
+              Push files to the knowledge repo to get started.
             </Empty.Description>
           </Empty.Content>
         </Empty>
@@ -199,7 +201,7 @@ function KnowledgeTree({
           <Empty.Icon>
             <Search size={28} className="text-muted-foreground/30" />
           </Empty.Icon>
-          <Empty.Title className="text-sm">无匹配结果</Empty.Title>
+          <Empty.Title className="text-sm">No Results</Empty.Title>
         </Empty.Content>
       </Empty>
     );
@@ -338,7 +340,7 @@ function FileContent({ path }: { path: string }) {
     return (
       <div className="flex flex-col items-center gap-2 pt-20 text-sm text-muted-foreground">
         <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-foreground border-t-transparent" />
-        正在加载文件内容...
+        Loading file...
       </div>
     );
   }
@@ -346,7 +348,7 @@ function FileContent({ path }: { path: string }) {
   if (error) {
     return (
       <div className="border-2 border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
-        加载失败: {(error as Error).message}
+        Load failed: {(error as Error).message}
       </div>
     );
   }
@@ -399,7 +401,7 @@ function FileContent({ path }: { path: string }) {
 
       {saveMutation.isError && (
         <div className="border-2 border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">
-          保存失败: {(saveMutation.error as Error).message}
+          Save failed: {(saveMutation.error as Error).message}
         </div>
       )}
 
@@ -422,5 +424,28 @@ function FileContent({ path }: { path: string }) {
         </pre>
       )}
     </div>
+  );
+}
+
+function SyncButton() {
+  const queryClient = useQueryClient();
+  const syncMutation = useMutation({
+    mutationFn: () => api.post("/knowledge/sync"),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["knowledge-tree"] });
+    },
+  });
+
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={() => syncMutation.mutate()}
+      disabled={syncMutation.isPending}
+      className="text-[10px] h-6 px-2"
+    >
+      <RefreshCw size={11} className={syncMutation.isPending ? "animate-spin" : ""} />
+      Sync
+    </Button>
   );
 }

@@ -69,15 +69,15 @@ export function LearningRecords() {
       <div className="flex items-center gap-3 flex-wrap">
         <Select value={category} onValueChange={(v) => setCategory(v ?? "all")}>
           <Select.Trigger className="w-32">
-            <Select.Value placeholder="分类" />
+            <Select.Value placeholder="Category" />
           </Select.Trigger>
           <Select.Content>
-            <Select.Item value="all">全部</Select.Item>
-            <Select.Item value="decision">决策</Select.Item>
-            <Select.Item value="pattern">模式</Select.Item>
-            <Select.Item value="mistake">教训</Select.Item>
-            <Select.Item value="insight">洞察</Select.Item>
-            <Select.Item value="external">外部</Select.Item>
+            <Select.Item value="all">All</Select.Item>
+            <Select.Item value="decision">Decision</Select.Item>
+            <Select.Item value="pattern">Pattern</Select.Item>
+            <Select.Item value="mistake">Lesson</Select.Item>
+            <Select.Item value="insight">Insight</Select.Item>
+            <Select.Item value="external">External</Select.Item>
           </Select.Content>
         </Select>
 
@@ -87,7 +87,7 @@ export function LearningRecords() {
           onClick={() => setShowArchived(!showArchived)}
         >
           <Archive className="h-3.5 w-3.5 mr-1" />
-          {showArchived ? "已归档" : "活跃"}
+          {showArchived ? "Archived" : "Active"}
         </Button>
 
         <Button
@@ -97,14 +97,14 @@ export function LearningRecords() {
           disabled={distillMutation.isPending}
         >
           <RefreshCw className={`h-3.5 w-3.5 mr-1 ${distillMutation.isPending ? "animate-spin" : ""}`} />
-          蒸馏
+          Distill
         </Button>
       </div>
 
       {isLoading && (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-foreground border-t-transparent" />
-          加载中...
+          Loading...
         </div>
       )}
 
@@ -112,7 +112,7 @@ export function LearningRecords() {
         <Card className="max-w-lg">
           <Card.Content>
             <p className="text-sm text-destructive py-4">
-              加载失败: {(error as Error).message}
+              Load failed: {(error as Error).message}
             </p>
           </Card.Content>
         </Card>
@@ -125,8 +125,8 @@ export function LearningRecords() {
               <Sparkles className="h-8 w-8 text-muted-foreground" />
               <p className="text-sm text-muted-foreground">
                 {showArchived
-                  ? "没有已归档的知识条目。"
-                  : "暂无知识条目。点击「蒸馏」从执行记录和外部源中提取知识。"}
+                  ? "No archived entries."
+                  : "No entries yet. Click \"Distill\" to extract knowledge from executions and external sources."}
               </p>
             </div>
           </Card.Content>
@@ -161,7 +161,7 @@ export function LearningRecords() {
                     {item.created && (
                       <span>{new Date(item.created).toLocaleDateString()}</span>
                     )}
-                    <span>访问 {item.access_count}次</span>
+                    <span>{item.access_count} views</span>
                     {item.tags && <span>{item.tags}</span>}
                   </div>
                   <div className="flex items-center gap-1">
@@ -169,7 +169,7 @@ export function LearningRecords() {
                       variant="outline"
                       size="sm"
                       onClick={() => pinMutation.mutate({ slug: item.slug, pinned: !item.pinned })}
-                      title={item.pinned ? "取消置顶" : "置顶"}
+                      title={item.pinned ? "Unpin" : "Pin"}
                     >
                       <Pin className={`h-3 w-3 ${item.pinned ? "fill-current" : ""}`} />
                     </Button>
@@ -177,7 +177,7 @@ export function LearningRecords() {
                       variant="outline"
                       size="sm"
                       onClick={() => archiveMutation.mutate({ slug: item.slug, archived: !item.archived })}
-                      title={item.archived ? "恢复" : "归档"}
+                      title={item.archived ? "Restore" : "Archive"}
                     >
                       <Archive className="h-3 w-3" />
                     </Button>
