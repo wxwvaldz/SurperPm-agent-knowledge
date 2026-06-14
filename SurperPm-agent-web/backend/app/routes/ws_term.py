@@ -12,13 +12,13 @@ import json
 import logging
 import os
 import signal
-from http.cookies import SimpleCookie
 from pathlib import Path
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from app.services import exec_env
 from app.services import session as session_svc
+from app.services.helpers import extract_session_cookie as _extract_session_cookie
 from app.services.knowledge_store import get_store
 from app.services.platform import IS_WIN
 
@@ -33,15 +33,6 @@ log = logging.getLogger(__name__)
 router = APIRouter()
 
 
-def _extract_session_cookie(ws: WebSocket) -> str | None:
-    raw = ws.headers.get("cookie", "")
-    if not raw:
-        return None
-    cookie = SimpleCookie(raw)
-    morsel = cookie.get("SuperPmAgent_session")
-    return morsel.value if morsel else None
-
-
 def _set_winsize(fd: int, rows: int, cols: int) -> None:
     if IS_WIN:
         return
@@ -53,12 +44,20 @@ def _set_winsize(fd: int, rows: int, cols: int) -> None:
 
 
 @router.websocket("/ws/goal/{goal_id}/term")
-async def ws_goal_term(websocket: WebSocket, goal_id: int):
+async def ws_goal_term(websocket: WebSocket, goal_id: str):
     token = _extract_session_cookie(websocket)
     session = session_svc.decode(token) if token else None
     if not session:
         await websocket.close(code=4001, reason="invalid session")
         return
+
+    from app.database import async_session as _db_session
+    from app.models.global_config import GlobalConfig
+    async with _db_session() as db:
+        cfg = await db.get(GlobalConfig, 1)
+        if not cfg or session.get("username") != cfg.founder_username:
+            await websocket.close(code=4003, reason="founder only")
+            return
 
     store = get_store()
     goal = store.get("goals", goal_id)

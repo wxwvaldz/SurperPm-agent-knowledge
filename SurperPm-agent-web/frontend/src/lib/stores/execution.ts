@@ -24,6 +24,7 @@ function findStreamingIndex(lines: LogLine[], index?: number): number {
 interface ExecutionProgress {
   execution_id: string;
   goal_id: number;
+  workspace_id?: string;
   token_used?: number;
   paused?: boolean;
   logs?: LogLine[];
@@ -32,16 +33,29 @@ interface ExecutionProgress {
 interface ExecutionStore {
   progress: ExecutionProgress | null;
   logsByExec: Record<string, LogLine[]>;
+  activeGoalId: string | number | null;
+  setActiveGoal: (goalId: string | number | null) => void;
   updateProgress: (data: ExecutionProgress) => void;
   clearProgress: () => void;
   clearLogs: () => void;
 }
 
-export const useExecutionStore = create<ExecutionStore>((set) => ({
+export const useExecutionStore = create<ExecutionStore>((set, get) => ({
   progress: null,
   logsByExec: {},
+  activeGoalId: null,
+  setActiveGoal: (goalId) => set({
+    activeGoalId: goalId,
+    // Don't clear logsByExec — keep existing live logs so navigating between
+    // pages doesn't lose the stream.  clearLogs() is still available when the
+    // user explicitly cancels an execution.
+  }),
   updateProgress: (data) =>
     set((state) => {
+      // Filter by active goal — prevent cross-pollution when viewing a specific goal
+      if (state.activeGoalId != null && data.goal_id !== state.activeGoalId) {
+        return {};
+      }
       // Merge into the current progress so partial events (e.g. a pause toggle
       // with no token_used) don't clobber prior fields. Reset on a new run.
       const base =

@@ -28,10 +28,10 @@ function MobileNav() {
 
   return (
     <>
-      <div className="md:hidden flex items-center h-12 px-4 border-b-2 border-border bg-card">
+      <div className="md:hidden flex items-center h-12 px-4 border-b border-border bg-card">
         <button
           onClick={() => setOpen(true)}
-          className="p-1.5 border-2 border-border bg-background hover:bg-primary transition-all"
+          className="p-1.5 border border-border bg-background hover:bg-primary transition-all"
         >
           <Menu size={18} />
         </button>
@@ -45,11 +45,11 @@ function MobileNav() {
             onClick={() => setOpen(false)}
           />
           <aside className="absolute left-0 top-0 bottom-0 w-64 bg-card border-r-2 border-border flex flex-col">
-            <div className="flex h-14 items-center justify-between px-4 border-b-2 border-border">
-              <span className="font-head text-base font-bold">SuperPmAgent</span>
+            <div className="flex h-14 items-center justify-between px-4 border-b border-border">
+              <span className="font-head text-xs font-bold">SuperPmAgent</span>
               <button
                 onClick={() => setOpen(false)}
-                className="p-1.5 border-2 border-border bg-background hover:bg-primary transition-all"
+                className="p-1.5 border border-border bg-background hover:bg-primary transition-all"
               >
                 <X size={16} />
               </button>
@@ -63,9 +63,9 @@ function MobileNav() {
                   end={end}
                   onClick={() => setOpen(false)}
                   className={({ isActive }) =>
-                    `flex items-center gap-3 px-3 py-2.5 text-sm font-medium border-2 transition-all ${
+                    `flex items-center gap-3 px-3 py-2.5 text-sm font-medium border transition-all ${
                       isActive
-                        ? "border-border bg-primary text-foreground shadow-[3px_3px_0_0_#000]"
+                        ? "border-border bg-primary text-foreground"
                         : "border-transparent text-muted-foreground hover:border-border hover:bg-background"
                     }`
                   }
@@ -76,9 +76,9 @@ function MobileNav() {
               ))}
             </nav>
 
-            <div className="border-t-2 border-border p-3">
+            <div className="border-t border-border p-3">
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 border-2 border-border bg-muted flex items-center justify-center shadow-[2px_2px_0_0_#000] shrink-0">
+                <div className="w-7 h-7 border border-border bg-muted flex items-center justify-center shrink-0">
                   <User size={14} />
                 </div>
                 <span className="text-xs font-bold truncate flex-1">
@@ -91,7 +91,7 @@ function MobileNav() {
                   }}
                   aria-label="Logout"
                   title="Logout"
-                  className="flex items-center gap-1 px-2 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors border-2 border-transparent hover:border-border shrink-0"
+                  className="flex items-center gap-1 px-2 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors border border-transparent hover:border-border shrink-0"
                 >
                   <LogOut size={14} />
                 </button>
@@ -116,10 +116,10 @@ function AppSidebar() {
     >
       <div className="flex h-10 items-center justify-between px-2.5 border-b border-border">
         {!sidebarCollapsed && (
-          <span className="font-head text-xs font-bold tracking-tight">SuperPmAgent</span>
+          <span className="font-head text-sm font-bold tracking-tight">SuperPmAgent</span>
         )}
         <button onClick={toggleSidebar} className="p-1 hover:bg-muted transition-colors text-muted-foreground">
-          {sidebarCollapsed ? <ChevronsRight size={14} /> : <ChevronsLeft size={14} />}
+          {sidebarCollapsed ? <ChevronsRight size={16} /> : <ChevronsLeft size={16} />}
         </button>
       </div>
 
@@ -130,14 +130,14 @@ function AppSidebar() {
             to={to}
             end={end}
             className={({ isActive }) =>
-              `flex items-center gap-2 px-2 py-1.5 text-xs font-medium transition-all rounded-sm ${
+              `flex items-center gap-2.5 px-2 py-2 text-sm font-medium transition-all rounded-sm ${
                 isActive
                   ? "bg-primary text-foreground"
                   : "text-muted-foreground hover:bg-muted hover:text-foreground"
               }`
             }
           >
-            <Icon size={15} />
+            <Icon size={18} />
             {!sidebarCollapsed && <span>{label}</span>}
           </NavLink>
         ))}
@@ -146,24 +146,24 @@ function AppSidebar() {
       <div className="border-t border-border p-2">
         {sidebarCollapsed ? (
           <div className="flex flex-col items-center">
-            <div className="w-6 h-6 bg-muted flex items-center justify-center overflow-hidden rounded-sm">
+            <div className="w-7 h-7 bg-muted flex items-center justify-center overflow-hidden rounded-sm">
               {user?.avatar_url ? (
                 <img src={user.avatar_url} alt="" className="w-full h-full object-cover" />
               ) : (
-                <User size={12} />
+                <User size={16} />
               )}
             </div>
           </div>
         ) : (
-          <div className="flex items-center gap-1.5">
-            <div className="w-5 h-5 bg-muted flex items-center justify-center overflow-hidden rounded-sm shrink-0">
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 bg-muted flex items-center justify-center overflow-hidden rounded-sm shrink-0">
               {user?.avatar_url ? (
                 <img src={user.avatar_url} alt="" className="w-full h-full object-cover" />
               ) : (
-                <User size={10} />
+                <User size={14} />
               )}
             </div>
-            <span className="text-[10px] font-medium truncate flex-1">
+            <span className="text-xs font-medium truncate flex-1">
               {user?.username ?? "User"}
             </span>
             <button
@@ -172,7 +172,7 @@ function AppSidebar() {
               title="Logout"
               className="p-1 text-muted-foreground hover:text-foreground transition-colors shrink-0"
             >
-              <LogOut size={12} />
+              <LogOut size={15} />
             </button>
           </div>
         )}

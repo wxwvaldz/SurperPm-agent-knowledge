@@ -8,12 +8,10 @@ import subprocess
 from pathlib import Path
 
 import requests as http_requests
-import urllib3
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 # Disable SSL warnings for dev environments with corporate proxies
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 from app.config import settings
 from app.routes.deps import require_auth, require_founder
@@ -93,7 +91,7 @@ def _recurse_github_dir(
             break
         if entry.get("type") == "dir":
             try:
-                resp = http_requests.get(entry["url"], headers=headers, timeout=15, verify=False)
+                resp = http_requests.get(entry["url"], headers=headers, timeout=15)
                 if resp.status_code == 200:
                     _recurse_github_dir(headers, owner, repo, resp.json(), base_path, collected, max_files, depth + 1)
             except Exception:
@@ -106,7 +104,7 @@ def _recurse_github_dir(
             if not download_url:
                 continue
             try:
-                resp = http_requests.get(download_url, headers=headers, timeout=15, verify=False)
+                resp = http_requests.get(download_url, headers=headers, timeout=15)
                 if resp.status_code == 200:
                     rel_path = entry.get("path", name)
                     if base_path and rel_path.startswith(base_path + "/"):
@@ -123,7 +121,7 @@ def _plugin_root() -> Path:
     from app.services.knowledge_store import get_store
 
     store = get_store()
-    knowledge_plugins = store._root.parent / "plugins"
+    knowledge_plugins = store.knowledge_root / "plugins"
     if knowledge_plugins.is_dir():
         return knowledge_plugins
     # Auto-create the plugins directory alongside the knowledge repo
@@ -259,7 +257,7 @@ async def import_plugin_from_github(
         shutil.rmtree(dest, ignore_errors=True)
 
     api_url = f"{_GITHUB_API}/repos/{owner}/{repo}/contents/{subpath}".rstrip("/")
-    resp = http_requests.get(api_url, headers=headers, timeout=15, verify=False)
+    resp = http_requests.get(api_url, headers=headers, timeout=15)
     if resp.status_code == 404:
         raise HTTPException(status_code=404, detail="GitHub path not found")
     resp.raise_for_status()
@@ -353,7 +351,7 @@ async def import_marketplace(
     raw_json: dict | None = None
     for path in ("marketplace.json", ".claude-plugin/marketplace.json"):
         api_url = f"{_GITHUB_API}/repos/{owner}/{repo}/contents/{path}?ref={branch}"
-        resp = http_requests.get(api_url, headers=headers, timeout=15, verify=False)
+        resp = http_requests.get(api_url, headers=headers, timeout=15)
         if resp.status_code == 404:
             continue
         resp.raise_for_status()
@@ -440,7 +438,7 @@ async def install_from_marketplace(
     headers = _github_headers(_user)
 
     api_url = f"{_GITHUB_API}/repos/{owner}/{repo}/contents/{subdir}?ref={branch}"
-    resp = http_requests.get(api_url, headers=headers, timeout=15, verify=False)
+    resp = http_requests.get(api_url, headers=headers, timeout=15)
     if resp.status_code == 404:
         raise HTTPException(status_code=404, detail=f"GitHub path not found: {subdir}")
     resp.raise_for_status()
@@ -560,7 +558,7 @@ async def update_plugin(
         .rstrip("/")
     )
     resp = http_requests.get(
-        api_url, headers=headers, timeout=15, verify=False,
+        api_url, headers=headers, timeout=15,
     )
     if resp.status_code == 404:
         raise HTTPException(
@@ -602,24 +600,15 @@ async def update_plugin(
 # ── Sync from remote git repo ─────────────────────────────────
 
 
-def _sync_config_file() -> Path:
-    return _plugin_root() / ".sync-config.json"
-
-
 def _read_sync_config() -> dict:
-    f = _sync_config_file()
-    if not f.is_file():
-        return {}
-    try:
-        return json.loads(f.read_text(encoding="utf-8"))
-    except (ValueError, OSError):
-        return {}
+    from app.services.knowledge_store import get_store
+    return get_store().get_settings().get("plugin_sync", {})
 
 
 def _save_sync_config(data: dict) -> None:
-    f = _sync_config_file()
-    f.parent.mkdir(parents=True, exist_ok=True)
-    f.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+    import asyncio
+    from app.services.knowledge_store import get_store
+    asyncio.ensure_future(get_store().update_settings({"plugin_sync": data}))
 
 
 @router.get("/sync-repo/config")

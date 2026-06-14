@@ -21,7 +21,7 @@ def _skills_root() -> Path:
     from app.services.knowledge_store import get_store
 
     store = get_store()
-    root = store._root.parent / "skills"
+    root = store.knowledge_root / "skills"
     root.mkdir(parents=True, exist_ok=True)
     return root
 

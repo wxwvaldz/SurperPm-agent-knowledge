@@ -13,12 +13,14 @@ interface CreateTopicDialogProps {
   goalId?: number;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onCreated?: (topicId: number) => void;
 }
 
 export function CreateTopicDialog({
   goalId,
   open,
   onOpenChange,
+  onCreated,
 }: CreateTopicDialogProps) {
   const queryClient = useQueryClient();
   const [name, setName] = useState("");
@@ -27,9 +29,9 @@ export function CreateTopicDialog({
   const createMutation = useMutation({
     mutationFn: (body: { name: string; description?: string }) =>
       goalId
-        ? api.post(`/goals/${goalId}/topics`, body)
-        : api.post("/topics", body),
-    onSuccess: () => {
+        ? api.post<{ id: number }>(`/goals/${goalId}/topics`, body)
+        : api.post<{ id: number }>("/topics", body),
+    onSuccess: (data) => {
       if (goalId) {
         queryClient.invalidateQueries({ queryKey: topicKeys.all(goalId) });
       } else {
@@ -38,6 +40,10 @@ export function CreateTopicDialog({
       setName("");
       setDescription("");
       onOpenChange(false);
+      if (data?.id) {
+        if (onCreated) onCreated(data.id);
+        api.post("/discussions", { role: "user", content: "你好", topic_id: data.id }).catch(() => {});
+      }
     },
   });
 

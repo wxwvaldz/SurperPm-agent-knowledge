@@ -7,9 +7,7 @@ import { Button } from "@/components/retroui/Button";
 import { Text } from "@/components/retroui/Text";
 import { Card } from "@/components/retroui/Card";
 import { Badge } from "@/components/retroui/Badge";
-import { MarkdownContent } from "@/components/business/markdown-content";
 import { User, ChevronDown, ChevronRight, UserCircle, Users, Cpu } from "lucide-react";
-import { ProfileSummary, hasProfileInStorage } from "@/pages/Profile";
 
 interface TeamMember {
   login: string;
@@ -38,7 +36,6 @@ export function TeamContent() {
     queryFn: () => api.get<TeamProfile>("/setup/team-profile"),
   });
 
-  const hasProfile = hasProfileInStorage();
 
   return (
     <div className="space-y-6 max-w-2xl">
@@ -53,7 +50,7 @@ export function TeamContent() {
           }`}
         >
           <Users size={14} />
-          Team
+          Member
         </button>
         <button
           onClick={() => setView("personal")}
@@ -65,9 +62,6 @@ export function TeamContent() {
         >
           <UserCircle size={14} />
           Personal
-          {hasProfile && (
-            <span className="w-1.5 h-1.5 rounded-full bg-green-500 shrink-0" />
-          )}
         </button>
         <button
           onClick={() => setView("agent")}
@@ -117,38 +111,20 @@ function TeamView({
     );
   }
 
+  const title = profile.team_md
+    ? (profile.team_md.match(/^#\s+(.+)$/m)?.[1] || profile.team_name)
+    : profile.team_name;
+  const desc = profile.description || "";
+
   return (
     <>
-      <Card>
-        <Card.Header>
-          <Card.Title>{profile.team_name}</Card.Title>
-        </Card.Header>
-        <Card.Content>
-          {profile.team_md ? (
-            <MarkdownContent content={profile.team_md} className="mb-4 text-sm" />
-          ) : (
-            profile.description && (
-              <p className="text-sm text-muted-foreground mb-4">
-                {profile.description}
-              </p>
-            )
-          )}
-          {Object.keys(profile.languages).length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {Object.entries(profile.languages)
-                .sort(([, a], [, b]) => b - a)
-                .map(([lang, pct]) => (
-                  <Badge key={lang}>
-                    {lang} {pct}%
-                  </Badge>
-                ))}
-            </div>
-          )}
-        </Card.Content>
-      </Card>
+      <div className="space-y-1">
+        <p className="text-sm font-bold">{title}</p>
+        {desc && <p className="text-xs text-muted-foreground">{desc}</p>}
+      </div>
 
       <div>
-        <Text as="h3" className="text-lg mb-3">
+        <Text as="h3" className="text-sm font-bold mb-2">
           Members ({profile.members.length})
         </Text>
         {profile.members.length === 0 ? (
@@ -167,8 +143,9 @@ function TeamView({
 
 function PersonalView() {
   return (
-    <div>
-      <ProfileSummary />
+    <div className="text-xs text-muted-foreground py-4">
+      <p>Personal profile is collected through the Discuss onboarding.</p>
+      <p className="mt-1">Go to <a href="/" className="text-foreground underline">Discuss</a> and type "闯关" to set up your profile.</p>
     </div>
   );
 }
@@ -177,12 +154,12 @@ function MemberRow({ member }: { member: TeamMember }) {
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <div className="border-2 border-border bg-card">
+    <div className="border border-border bg-card">
       <button
         onClick={() => setExpanded(!expanded)}
         className="flex items-center gap-3 w-full px-4 py-3 text-left hover:bg-muted/50 transition-colors"
       >
-        <div className="w-8 h-8 border-2 border-border bg-muted flex items-center justify-center shadow-[2px_2px_0_0_#000] overflow-hidden shrink-0">
+        <div className="w-8 h-8 border border-border bg-muted flex items-center justify-center overflow-hidden shrink-0">
           {member.avatar_url ? (
             <img
               src={member.avatar_url}
@@ -205,7 +182,7 @@ function MemberRow({ member }: { member: TeamMember }) {
       {expanded && (
         <div className="px-4 pb-3 border-t border-border/50">
           <div className="flex items-center gap-3 py-3">
-            <div className="w-12 h-12 border-2 border-border bg-muted flex items-center justify-center shadow-[2px_2px_0_0_#000] overflow-hidden">
+            <div className="w-12 h-12 border border-border bg-muted flex items-center justify-center overflow-hidden">
               {member.avatar_url ? (
                 <img
                   src={member.avatar_url}

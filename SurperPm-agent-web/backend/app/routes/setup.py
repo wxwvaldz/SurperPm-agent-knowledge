@@ -43,7 +43,7 @@ def _profiles_dir() -> Path:
     knowledge_path = Path(settings.knowledge_repo_path) if settings.knowledge_repo_path else None
     if not knowledge_path or not knowledge_path.is_dir():
         store = get_store()
-        knowledge_path = store._root.parent
+        knowledge_path = store.knowledge_root
     return knowledge_path / "profiles" / "users"
 
 
@@ -120,8 +120,29 @@ async def team_profile(
     languages = languages_res if isinstance(languages_res, dict) else {}
     members = members_res if isinstance(members_res, list) else []
     info = info_res if isinstance(info_res, dict) else {}
+
+    if not members:
+        try:
+            store = get_store()
+            users_dir = store.knowledge_root / "profiles" / "users"
+            if users_dir.is_dir():
+                members = [
+                    {"login": f.stem, "avatar_url": ""}
+                    for f in sorted(users_dir.iterdir())
+                    if f.suffix == ".md" and f.stem != "claude"
+                ]
+        except Exception:
+            pass
     description = info.get("description", "")
-    team_md = team_md_res if isinstance(team_md_res, str) else ""
+    local_team_md = ""
+    try:
+        store = get_store()
+        local_path = store.knowledge_root / "profiles" / "team.md"
+        if local_path.is_file():
+            local_team_md = local_path.read_text(encoding="utf-8")
+    except Exception:
+        pass
+    team_md = local_team_md or (team_md_res if isinstance(team_md_res, str) else "")
     team_md_exists = bool(team_md)
 
     total = sum(int(v) for v in languages.values()) if languages else 0

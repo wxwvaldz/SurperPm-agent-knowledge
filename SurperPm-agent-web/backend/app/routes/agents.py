@@ -17,7 +17,7 @@ _logger = logging.getLogger(__name__)
 
 def _agents_file() -> Path:
     store = get_store()
-    return store._root.parent / "agents.json"
+    return store.logs_root / "settings" / "agents.json"
 
 
 def _read_agents() -> dict:

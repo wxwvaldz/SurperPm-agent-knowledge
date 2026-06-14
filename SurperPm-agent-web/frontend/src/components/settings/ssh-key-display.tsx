@@ -81,25 +81,19 @@ export function SshKeyDisplay() {
   }
 
   return (
-    <div className="space-y-3">
-      {!hasPrivateKey && (
-        <Alert status="warning">
-          <Alert.Description>
-            Private key missing. Please regenerate the key pair.
-          </Alert.Description>
-        </Alert>
-      )}
-      <p className="text-sm text-foreground/60">
-        Add this public key to your Git hosting provider (GitHub, GitLab, etc.)
-        to allow SuperPmAgent to access your repositories.
-      </p>
-      <div className="relative">
-        <Textarea
-          readOnly
-          value={publicKey}
-          rows={3}
-          className="font-mono text-xs resize-none pr-20"
-        />
+    <div className="space-y-2">
+      <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">SSH Key</p>
+      <div className="border border-border p-3 space-y-2">
+        {!hasPrivateKey && (
+          <p className="text-xs text-destructive">Private key missing. Regenerate.</p>
+        )}
+        <div className="relative">
+          <Textarea
+            readOnly
+            value={publicKey}
+            rows={2}
+            className="font-mono text-[10px] resize-none pr-16"
+          />
         <Button size="sm" onClick={handleCopy} className="absolute top-2 right-2">
           <Copy size={12} />
           {copied ? "Copied!" : "Copy"}
@@ -137,6 +131,7 @@ export function SshKeyDisplay() {
           {pushResult.ok ? `✓ ${pushResult.message}` : `✗ ${pushResult.message}`}
         </p>
       )}
+      </div>
     </div>
   );
 }

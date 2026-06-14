@@ -103,7 +103,7 @@ export function LearningRecords() {
 
       {isLoading && (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-foreground border-t-transparent" />
+          <span className="inline-block h-3 w-3 animate-spin rounded-full border border-foreground border-t-transparent" />
           Loading...
         </div>
       )}

@@ -9,6 +9,7 @@ import { AuthProvider } from './context/AuthContext'
 import { QueryProvider } from './providers/query-provider'
 import { ToastProvider } from './components/business/toast'
 import { ConfirmProvider } from './components/business/confirm-dialog'
+import { ErrorBoundary } from './components/business/error-boundary'
 import ProtectedRoute from './components/ProtectedRoute'
 import { AppLayout } from './components/layout/app-layout'
 import { GoalLayout } from './components/layout/goal-layout'
@@ -21,12 +22,12 @@ import DiscussPage from './pages/Discuss'
 import GoalExecutionsPage from './pages/goal/GoalExecutions'
 import GoalSettingsPage from './pages/goal/GoalSettings'
 import SkillDetailPage from './pages/workspace/SkillDetail'
-import ProfilePage from './pages/Profile'
 
 import './index.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
+    <ErrorBoundary>
     <QueryProvider>
       <ToastProvider>
       <ConfirmProvider>
@@ -48,7 +49,6 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
                   <Route path="settings" element={<GoalSettingsPage />} />
                 </Route>
               </Route>
-              <Route path="/profile" element={<ProfilePage />} />
             </Route>
           </Routes>
         </BrowserRouter>
@@ -56,5 +56,6 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       </ConfirmProvider>
       </ToastProvider>
     </QueryProvider>
+    </ErrorBoundary>
   </React.StrictMode>,
 )

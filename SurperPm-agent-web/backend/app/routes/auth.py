@@ -7,11 +7,10 @@ carrying the user's GitHub token + username + repo. Identity is implicit:
 import asyncio
 import logging
 import secrets
-import time
 from datetime import UTC, datetime
 from typing import Annotated
 
-import requests
+import httpx
 from fastapi import APIRouter, Cookie, HTTPException, Query, Response
 from fastapi.responses import HTMLResponse
 
@@ -95,13 +94,14 @@ async def _global_config_snapshot() -> tuple[bool, str | None, str, str]:
         return bool(knowledge_repo_url), cfg.founder_username, repo, key
 
 
-def _post_with_retry(url: str, json: dict, max_retries: int = 3) -> requests.Response | None:
+async def _post_with_retry(url: str, json: dict, max_retries: int = 3) -> httpx.Response | None:
     """POST with retry on transient SSL/connection errors (proxy instability)."""
     last_err: Exception | None = None
     for attempt in range(max_retries):
         try:
-            return requests.post(url, json=json, headers={"Accept": "application/json"}, timeout=10)
-        except (requests.exceptions.SSLError, requests.exceptions.ConnectionError) as e:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                return await client.post(url, json=json, headers={"Accept": "application/json"})
+        except (httpx.ConnectError, httpx.RemoteProtocolError) as e:
             last_err = e
             if attempt < max_retries - 1:
                 delay = (attempt + 1) * 1.5
@@ -109,7 +109,7 @@ def _post_with_retry(url: str, json: dict, max_retries: int = 3) -> requests.Res
                     "Token exchange attempt %d failed (%s), retrying in %.1fs",
                     attempt + 1, e, delay,
                 )
-                time.sleep(delay)
+                await asyncio.sleep(delay)
     _logger.error("Token exchange failed after %d attempts: %s", max_retries, last_err)
     return None
 
@@ -168,14 +168,14 @@ async def login(payload: dict, response: Response) -> dict:
     if not anthropic_key:
         anthropic_key = global_key
 
-    r = requests.get(
-        f"https://api.github.com/repos/{repo}",
-        headers={
-            "Authorization": f"Bearer {pat}",
-            "Accept": "application/vnd.github+json",
-        },
-        timeout=10,
-    )
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        r = await client.get(
+            f"https://api.github.com/repos/{repo}",
+            headers={
+                "Authorization": f"Bearer {pat}",
+                "Accept": "application/vnd.github+json",
+            },
+        )
 
     if r.status_code != 200:
         raise HTTPException(
@@ -318,7 +318,7 @@ async def github_callback(
         return _oauth_html_redirect("state_invalid")
 
     # Exchange code for access token (with retry for flaky proxy SSL)
-    token_resp = _post_with_retry(
+    token_resp = await _post_with_retry(
         "https://github.com/login/oauth/access_token",
         json={
             "client_id": settings.github_oauth_client_id,

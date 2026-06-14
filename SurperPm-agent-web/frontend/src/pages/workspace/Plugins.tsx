@@ -5,7 +5,7 @@ import { useToast } from "@/components/business/toast";
 import { useConfirm } from "@/components/business/confirm-dialog";
 import {
   Search, Plug, Cpu, Wrench, Plus, Trash2, RefreshCw,
-  Power, PowerOff, CheckCircle, AlertTriangle,
+  Power, PowerOff, CheckCircle, AlertTriangle, Check, X,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { Text } from "@/components/retroui/Text";
@@ -110,6 +110,7 @@ function SkillsGrid({
 // ── MCP Tab ─────────────────────────────────────────────────────
 
 export function MCPTab({ workspaceId }: { workspaceId: string }) {
+  const { toast: mcpToast } = useToast();
   const queryClient = useQueryClient();
   const [addOpen, setAddOpen] = useState(false);
   const [editingName, setEditingName] = useState<string | null>(null);
@@ -125,7 +126,7 @@ export function MCPTab({ workspaceId }: { workspaceId: string }) {
     onSuccess: (data: unknown) => {
       queryClient.invalidateQueries({ queryKey: mcpKeys.list(workspaceId) });
       const d = data as { created: number };
-      alert(`Imported ${d.created} MCP server(s)`);
+      mcpToast(`Imported ${d.created} MCP server(s)`, "success");
       setAddOpen(false);
       setJsonText("");
       setJsonError(null);
@@ -157,9 +158,9 @@ export function MCPTab({ workspaceId }: { workspaceId: string }) {
     onSuccess: (data: unknown) => {
       queryClient.invalidateQueries({ queryKey: mcpKeys.list(workspaceId) });
       const d = data as { discovered: number };
-      alert(`Discovered ${d.discovered} MCP server(s)`);
+      mcpToast(`Discovered ${d.discovered} MCP server(s)`, "success");
     },
-    onError: (e: Error) => alert(`Discovery failed: ${e.message}`),
+    onError: (e: Error) => mcpToast(`Discovery failed: ${e.message}`, "error"),
   });
 
   const toggleMutation = useMutation({
@@ -272,7 +273,7 @@ export function MCPTab({ workspaceId }: { workspaceId: string }) {
             return (
               <div
                 key={srv.name}
-                className="border-2 border-border bg-card p-4"
+                className="border border-border bg-card p-4"
               >
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3 min-w-0">
@@ -346,7 +347,7 @@ export function MCPTab({ workspaceId }: { workspaceId: string }) {
       <Dialog open={addOpen || editingName != null} onOpenChange={(v) => { if (!v) { setAddOpen(false); setEditingName(null); setJsonText(""); setJsonError(null); } }}>
         <Dialog.Content size="md">
           <Dialog.Header>
-            <Text as="h3" className="text-base font-bold">
+            <Text as="h3" className="text-sm font-bold">
               {editingName != null ? "Edit MCP Server" : "Add MCP Server"}
             </Text>
           </Dialog.Header>
@@ -424,77 +425,71 @@ export function PluginsTab() {
     queryFn: () => api.get<SyncConfig>("/plugins/sync-repo/config"),
   });
 
-  const [urlsInput, setUrlsInput] = useState("");
-  const [editing, setEditing] = useState(false);
+  const [newUrl, setNewUrl] = useState("");
+  const [editIdx, setEditIdx] = useState<number | null>(null);
+  const [editUrl, setEditUrl] = useState("");
+  const repoUrls = syncConfig?.repo_urls ?? [];
+
+  const saveUrls = (urls: string[]) => {
+    api.post("/plugins/sync-repo/config", { repo_urls: urls })
+      .then(() => queryClient.invalidateQueries({ queryKey: [...pluginKeys.all(), "sync-config"] }))
+      .catch((e: Error) => toast(`Save failed: ${e.message}`, "error"));
+  };
 
   const syncMutation = useMutation({
     mutationFn: (repo_urls?: string[] | void) =>
-      api.post<{ ok: boolean; count: number; results: SyncResult[] }>("/plugins/sync-repo", repo_urls ? { repo_urls } : {}),
+      api.post<{ ok: boolean; count: number; results: { ok: boolean }[] }>("/plugins/sync-repo", repo_urls ? { repo_urls } : {}),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: pluginKeys.all() });
       const failed = data.results.filter(r => !r.ok);
-      toast(failed.length ? `Synced ${data.count} plugins, ${failed.length} repo(s) failed` : `Synced ${data.count} plugins`, failed.length ? "error" : "success");
-      setEditing(false);
+      toast(failed.length ? `Synced ${data.count} plugins, ${failed.length} failed` : `Synced ${data.count} plugins`, failed.length ? "error" : "success");
     },
     onError: (e: Error) => toast(`Sync failed: ${e.message}`, "error"),
   });
 
-  const saveConfigMutation = useMutation({
-    mutationFn: (repo_urls: string[]) => api.post("/plugins/sync-repo/config", { repo_urls }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [...pluginKeys.all(), "sync-config"] });
-      const urls = urlsInput.split("\n").map(u => u.trim()).filter(Boolean);
-      syncMutation.mutate(urls);
-    },
-    onError: (e: Error) => toast(`Save failed: ${e.message}`, "error"),
-  });
-
-  const hasRepos = (syncConfig?.repo_urls?.length ?? 0) > 0;
-  const isSyncing = syncMutation.isPending || saveConfigMutation.isPending;
+  const isSyncing = syncMutation.isPending;
 
   return (
     <div className="flex flex-col h-full max-w-4xl">
-      {/* ── Repo URLs + sync ── */}
-      <div className="border border-border bg-card p-2.5 mb-3">
-        {hasRepos && !editing ? (
-          <div className="flex items-center gap-2">
-            <Plug size={14} className="text-muted-foreground shrink-0" />
-            <div className="flex-1 min-w-0">
-              {syncConfig!.repo_urls.map(u => (
-                <p key={u} className="text-[11px] font-mono text-muted-foreground truncate">{u}</p>
-              ))}
-            </div>
-            <Button variant="ghost" size="sm" onClick={() => { setUrlsInput(syncConfig!.repo_urls.join("\n")); setEditing(true); }}>
-              <Wrench size={12} />
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => syncMutation.mutate()} disabled={isSyncing}>
-              <RefreshCw size={12} className={isSyncing ? "animate-spin" : ""} />
-              {isSyncing ? "Syncing..." : "Sync All"}
-            </Button>
+      {/* ── Repo list ── */}
+      <div className="border border-border bg-card p-2.5 mb-3 space-y-1.5">
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Plugin Repos</p>
+          <Button variant="outline" size="sm" onClick={() => syncMutation.mutate()} disabled={isSyncing || !repoUrls.length}>
+            <RefreshCw size={11} className={isSyncing ? "animate-spin" : ""} />
+            {isSyncing ? "Syncing..." : "Sync All"}
+          </Button>
+        </div>
+        {repoUrls.map((url, i) => (
+          <div key={i} className="flex items-center gap-1.5">
+            {editIdx === i ? (
+              <>
+                <input value={editUrl} onChange={e => setEditUrl(e.target.value)} className="flex-1 text-[11px] font-mono border border-border bg-background px-2 py-1 outline-none focus:border-foreground" />
+                <button onClick={() => { const u = [...repoUrls]; u[i] = editUrl.trim(); saveUrls(u.filter(Boolean)); setEditIdx(null); }} className="p-1 hover:bg-muted"><Check size={11} /></button>
+                <button onClick={() => setEditIdx(null)} className="p-1 hover:bg-muted"><X size={11} /></button>
+              </>
+            ) : (
+              <>
+                <Plug size={11} className="text-muted-foreground shrink-0" />
+                <span className="flex-1 text-[11px] font-mono text-muted-foreground truncate">{url}</span>
+                <button onClick={() => { setEditIdx(i); setEditUrl(url); }} className="p-1 hover:bg-muted" title="Edit"><Wrench size={11} /></button>
+                <button onClick={() => saveUrls(repoUrls.filter((_, j) => j !== i))} className="p-1 hover:bg-muted" title="Remove"><Trash2 size={11} /></button>
+              </>
+            )}
           </div>
-        ) : (
-          <div className="space-y-2">
-            <textarea
-              value={urlsInput}
-              onChange={(e) => setUrlsInput(e.target.value)}
-              placeholder={"https://github.com/user/plugins-repo\nhttps://github.com/other/more-plugins"}
-              className="w-full text-[11px] font-mono bg-background border border-border p-2 resize-none outline-none focus:border-foreground"
-              rows={3}
-            />
-            <div className="flex justify-end gap-2">
-              {editing && <Button variant="ghost" size="sm" onClick={() => setEditing(false)}>Cancel</Button>}
-              <Button size="sm" onClick={() => {
-                const urls = urlsInput.split("\n").map(u => u.trim()).filter(Boolean);
-                if (!urls.length) return;
-                saveConfigMutation.mutate(urls);
-              }} disabled={!urlsInput.trim() || isSyncing}>
-                {isSyncing ? "Syncing..." : "Save & Sync"}
-              </Button>
-            </div>
-          </div>
-        )}
-        {hasRepos && syncConfig!.last_synced && !editing && (
-          <p className="text-[10px] text-muted-foreground mt-1 ml-5">
+        ))}
+        <div className="flex items-center gap-1.5 pt-1">
+          <input
+            value={newUrl}
+            onChange={e => setNewUrl(e.target.value)}
+            placeholder="https://github.com/user/plugins-repo"
+            className="flex-1 text-[11px] font-mono border border-border bg-background px-2 py-1 outline-none focus:border-foreground"
+            onKeyDown={e => { if (e.key === "Enter" && newUrl.trim()) { saveUrls([...repoUrls, newUrl.trim()]); setNewUrl(""); } }}
+          />
+          <Button variant="outline" size="sm" onClick={() => { if (newUrl.trim()) { saveUrls([...repoUrls, newUrl.trim()]); setNewUrl(""); } }} disabled={!newUrl.trim()}>Add</Button>
+        </div>
+        {syncConfig?.last_synced && (
+          <p className="text-[10px] text-muted-foreground">
             Last synced: {new Date(syncConfig!.last_synced).toLocaleString()}
           </p>
         )}

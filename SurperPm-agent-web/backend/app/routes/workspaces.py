@@ -8,20 +8,11 @@ from pydantic import BaseModel
 from app.routes.deps import require_auth
 from app.services.crypto import encrypt
 from app.services.event_bus import WORKSPACE_CREATED, WORKSPACE_UPDATED, bus
+from app.services.helpers import resolve_workspace as _resolve_workspace
 from app.services.knowledge_store import KnowledgeStore, get_store
 from app.services.ssh_keygen import generate_ssh_keypair
 
 router = APIRouter()
-
-
-def _resolve_workspace(store: KnowledgeStore, workspace_id: str) -> dict | None:
-    ws = store.get("workspaces", workspace_id)
-    if ws:
-        return ws
-    for w in store.list("workspaces"):
-        if w.get("slug") == workspace_id:
-            return w
-    return None
 
 
 class WorkspaceCreate(BaseModel):

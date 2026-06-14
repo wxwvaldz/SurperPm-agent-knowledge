@@ -4,16 +4,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from app.routes.deps import require_auth
+from app.services.helpers import get_default_workspace_id as _get_default_workspace_id
 from app.services.knowledge_store import KnowledgeStore, get_store
 
 router = APIRouter()
-
-
-def _get_default_workspace_id(store: KnowledgeStore) -> str:
-    workspaces = store.list("workspaces")
-    if not workspaces:
-        raise HTTPException(status_code=404, detail="No workspace found")
-    return workspaces[0]["id"]
 
 
 class TopicCreate(BaseModel):
@@ -84,4 +78,5 @@ async def delete_standalone_topic(
     if not topic or topic.get("goal_id") is not None:
         raise HTTPException(status_code=404, detail="Topic not found")
     await store.update("topics", topic_id, {"archived": True})
+    await store.clear_topic_messages(topic_id)
     return {"ok": True}

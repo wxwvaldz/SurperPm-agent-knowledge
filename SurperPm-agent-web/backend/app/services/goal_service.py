@@ -7,15 +7,9 @@ Usage:
 """
 from __future__ import annotations
 
-import re
-
 from app.services.event_bus import GOAL_CREATED, bus
+from app.services.helpers import slugify as _slugify
 from app.services.knowledge_store import get_store
-
-
-def _slugify(title: str, goal_id: int | None = None) -> str:
-    slug = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")[:60]
-    return slug or f"goal-{goal_id or 0}"
 
 
 def _resolve_default_workspace() -> str | None:
@@ -33,7 +27,7 @@ async def create_goal(
     priority: int | str = 0,
     status: str = "todo",
     workspace_id: str | None = None,
-    group_id: int | None = None,
+    topic_id: int | None = None,
     deadline: str | None = None,
     token_budget: int | None = None,
     assigned_to: str | None = None,
@@ -43,6 +37,7 @@ async def create_goal(
     schedule: str | None = None,
     delay_until: str | None = None,
     target: str | None = None,
+    plugins: list[str] | None = None,
     session_name: str | None = None,
     source: str | None = None,
     dedup_key: str | None = None,
@@ -63,13 +58,13 @@ async def create_goal(
     if dedup_key:
         existing = store.list("goals")
         if any(
-            g.get("status") in ("todo", "doing")
+            g.get("status") in ("todo", "doing", "review")
             and dedup_key in (g.get("title") or "")
             for g in existing
         ):
             return next(
                 g for g in existing
-                if g.get("status") in ("todo", "doing")
+                if g.get("status") in ("todo", "doing", "review")
                 and dedup_key in (g.get("title") or "")
             )
 
@@ -89,7 +84,7 @@ async def create_goal(
         "priority": priority,
         "status": status,
         "session_name": session_name,
-        "group_id": group_id,
+        "topic_id": topic_id,
         "deadline": deadline,
         "token_budget": token_budget,
         "assigned_to": assigned_to,
@@ -103,10 +98,11 @@ async def create_goal(
         "schedule": schedule,
         "delay_until": delay_until,
         "target": target,
+        "plugins": plugins,
         "source": source,
     }
 
-    goal = await store.create("goals", data)
+    goal = await store.create("goals", data, id_type="hex")
     goal["slug"] = _slugify(goal["title"], goal["id"])
     await store.update("goals", goal["id"], {"slug": goal["slug"]})
 

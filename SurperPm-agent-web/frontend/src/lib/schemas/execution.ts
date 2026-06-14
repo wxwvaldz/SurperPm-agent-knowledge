@@ -2,12 +2,13 @@ import { z } from "zod";
 
 export const executionSchema = z.object({
   id: z.union([z.string(), z.number()]).transform(String),
-  goal_id: z.number(),
+  goal_id: z.union([z.string(), z.number()]).transform(String),
   workspace_id: z.string().optional().default(""),
   status: z.string().default("pending"),
   branch: z.string().nullable().optional(),
   started_at: z.string().nullable().optional(),
   finished_at: z.string().nullable().optional(),
+  paused_at: z.string().nullable().optional(),
   error: z.string().nullable().optional(),
   log_path: z.string().nullable().optional(),
   pr_url: z.string().nullable().optional(),

@@ -61,6 +61,7 @@ class BrowserManager:
         self._download_cbs: dict[tuple[str, str], Callable[[str, bytes], Awaitable[None]]] = {}
         self._active_tabs: dict[tuple[str, str], str] = {}
         self._pending_cleanup: dict[tuple[str, str], asyncio.Task] = {}
+        self._init_locks: dict[tuple[str, str], asyncio.Lock] = {}
         # Windows SelectorEventLoop workaround
         self._pw_thread: _PWThread | None = None
 
@@ -310,6 +311,13 @@ class BrowserManager:
                 else:
                     self._active_tabs.pop(ukey, None)
         await self._pw_call(_do_close)
+
+    def get_init_lock(self, workspace_id: str, user_id: str) -> asyncio.Lock:
+        """Return a per-session lock to serialize tab init (prevents double-tab race)."""
+        ukey = (workspace_id, user_id)
+        if ukey not in self._init_locks:
+            self._init_locks[ukey] = asyncio.Lock()
+        return self._init_locks[ukey]
 
     def list_tabs(self, workspace_id: str, user_id: str) -> tuple[list[dict], str | None]:
         ukey = (workspace_id, user_id)

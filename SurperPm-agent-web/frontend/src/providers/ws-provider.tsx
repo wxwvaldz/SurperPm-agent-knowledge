@@ -48,10 +48,12 @@ export function WSProvider({ workspaceId, children }: WSProviderProps) {
     ws.on("execution_progress", (data) => {
       useExecutionStore.getState().updateProgress(data as any);
     });
-    ws.on("execution_completed", () => {
+    ws.on("execution_completed", (data) => {
       queryClient.invalidateQueries({ queryKey: executionKeys.all() });
       queryClient.invalidateQueries({ queryKey: goalKeys.all() });
       useExecutionStore.getState().clearProgress();
+      const url = (data as any)?.artifact_url;
+      if (url) window.dispatchEvent(new CustomEvent("SuperPmAgent:navigate-browser", { detail: url }));
     });
     ws.on("workspace_updated", () => {
       queryClient.invalidateQueries({ queryKey: workspaceKeys.all() });
@@ -87,7 +89,7 @@ export function WSProvider({ workspaceId, children }: WSProviderProps) {
 }
 
 interface GoalWSProviderProps {
-  goalId: number;
+  goalId: string | number;
   children: React.ReactNode;
 }
 
@@ -106,6 +108,7 @@ export function GoalWSProvider({ goalId, children }: GoalWSProviderProps) {
       queryClient.invalidateQueries({ queryKey: discussionKeys.all(goalId) });
     });
     ws.on("execution_started", () => {
+      queryClient.invalidateQueries({ queryKey: executionKeys.all() });
       queryClient.invalidateQueries({ queryKey: goalKeys.all() });
       queryClient.invalidateQueries({ queryKey: executionKeys.all(goalId) });
     });
@@ -113,6 +116,7 @@ export function GoalWSProvider({ goalId, children }: GoalWSProviderProps) {
       useExecutionStore.getState().updateProgress(data as any);
     });
     ws.on("execution_completed", () => {
+      queryClient.invalidateQueries({ queryKey: executionKeys.all() });
       queryClient.invalidateQueries({ queryKey: goalKeys.all() });
       queryClient.invalidateQueries({ queryKey: executionKeys.all(goalId) });
       useExecutionStore.getState().clearProgress();

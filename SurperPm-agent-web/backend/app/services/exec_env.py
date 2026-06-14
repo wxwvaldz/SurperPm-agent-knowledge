@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -112,10 +113,13 @@ def prepare_ssh(private_key_enc: str | None, keydir: Path) -> tuple[Path | None,
         remove_dir(keydir)
     keydir.mkdir(parents=True, exist_ok=True)
     keyfile = keydir / "id_ed25519"
-    keyfile.write_text(private_key if private_key.endswith("\n") else private_key + "\n")
+    # Write as bytes to preserve LF line endings — Windows write_text() converts \n → \r\n,
+    # which corrupts the OpenSSH key format and causes "error in libcrypto: unsupported".
+    key_content = private_key if private_key.endswith("\n") else private_key + "\n"
+    keyfile.write_bytes(key_content.encode("utf-8"))
     set_key_permissions(keyfile)
     git_ssh = (
-        f"ssh -i {keyfile} -o IdentitiesOnly=yes "
+        f'ssh -i "{keyfile}" -o IdentitiesOnly=yes '
         f"-o StrictHostKeyChecking=accept-new -o UserKnownHostsFile={NULL_DEVICE}"
     )
     return keyfile, git_ssh
@@ -137,14 +141,33 @@ async def clone_or_pull(ssh_url: str, dest: Path, env: dict[str, str]) -> str:
     """Clone the repo, or fetch+reset an existing clone. Returns the default branch name."""
     if (dest / ".git").is_dir():
         _logger.info("exec_env: fetching %s", dest)
-        # Force remote to SSH — may have been previously cloned via HTTPS
-        await run_cmd("git", "-C", str(dest), "remote", "set-url", "origin", ssh_url, env=env)
-        await run_cmd("git", "-C", str(dest), "fetch", "--all", "--prune", env=env)
-        branch = await _default_branch(dest, env)
-        await run_cmd("git", "-C", str(dest), "checkout", "-B", branch, f"origin/{branch}", env=env)
-        await run_cmd("git", "-C", str(dest), "reset", "--hard", f"origin/{branch}", env=env)
-        return branch
+        for leftover in (".claude.json", ".last-cleanup", ".claude"):
+            p = dest / leftover
+            if p.exists():
+                if p.is_dir():
+                    remove_dir(p)
+                else:
+                    p.unlink()
+        try:
+            await run_cmd("git", "-C", str(dest), "remote", "set-url", "origin", ssh_url, env=env)
+            await run_cmd("git", "-C", str(dest), "fetch", "--all", "--prune", env=env)
+            branch = await _default_branch(dest, env)
+            # Clean untracked files that would block checkout (e.g. left over from previous runs).
+            # Best-effort: Windows may have file locks that prevent removal; checkout -f handles the rest.
+            try:
+                await run_cmd("git", "-C", str(dest), "clean", "-fd", env=env)
+            except RuntimeError:
+                _logger.warning("exec_env: git clean failed for %s (ignored)", dest)
+            await run_cmd("git", "-C", str(dest), "checkout", "-f", "-B", branch, f"origin/{branch}", env=env)
+            await run_cmd("git", "-C", str(dest), "reset", "--hard", f"origin/{branch}", env=env)
+            return branch
+        except RuntimeError:
+            _logger.warning("exec_env: fetch/checkout failed for %s, re-cloning", dest)
+            remove_dir(dest)
 
+    if dest.exists():
+        _logger.info("exec_env: removing stale non-git workdir %s", dest)
+        remove_dir(dest)
     _logger.info("exec_env: cloning %s → %s", ssh_url, dest)
     dest.parent.mkdir(parents=True, exist_ok=True)
     await run_cmd("git", "clone", ssh_url, str(dest), env=env)
@@ -173,7 +196,7 @@ def _resolve_plugin_root() -> Path | None:
     from app.services.knowledge_store import get_store
 
     store = get_store()
-    knowledge_plugins = store._root.parent / "plugins"
+    knowledge_plugins = store.knowledge_root / "plugins"
     if knowledge_plugins.is_dir():
         return knowledge_plugins
     if settings.plugin_repo_path:
@@ -183,8 +206,13 @@ def _resolve_plugin_root() -> Path | None:
     return None
 
 
-def plugin_dirs() -> list[str]:
-    """Resolve plugin dirs from knowledge/plugins/ for agent execution."""
+def plugin_dirs(selected: list[str] | None = None) -> list[str]:
+    """Resolve plugin dirs from knowledge/plugins/ for agent execution.
+
+    Args:
+        selected: If set, only include plugins whose directory name is in this list.
+                  If None, include all enabled plugins.
+    """
     base = _resolve_plugin_root()
     if not base:
         _logger.info("exec_env: no plugin directory found")
@@ -197,11 +225,16 @@ def plugin_dirs() -> list[str]:
             _logger.info("exec_env: skipping disabled plugin: %s", d.name)
             continue
         if (d / ".claude-plugin" / "plugin.json").is_file():
+            if selected is not None and d.name not in selected:
+                continue
             dirs.append(str(d.resolve()))
     return dirs
 
 
-def workdir_for(workspace_id: str, goal_id: int) -> Path:
+def workdir_for(workspace_id: str, goal_id: str, repo_url: str = "") -> Path:
+    if repo_url:
+        slug = re.sub(r"[^a-zA-Z0-9_-]", "-", repo_url.split("/")[-1].replace(".git", ""))
+        return _REPOS_ROOT / slug / f"goal-{goal_id}"
     return _REPOS_ROOT / workspace_id / f"goal-{goal_id}"
 
 
@@ -213,9 +246,10 @@ async def prepare_execution(goal: dict, workspace: dict) -> ExecEnv:
     goal_id = goal.get("id")
     assert goal_id is not None
     repo_url = resolve_repo_url(goal, workspace)
-    workdir = workdir_for(workspace.get("id", ""), goal_id)
+    workdir = workdir_for(workspace.get("id", ""), goal_id, repo_url)
 
-    env: dict[str, str] = {}
+    _SAFE_ENV_KEYS = {"HOME", "PATH", "LANG", "SHELL", "TERM", "USER", "TMPDIR"}
+    env: dict[str, str] = {k: v for k, v in os.environ.items() if k in _SAFE_ENV_KEYS}
     token = await resolve_github_token()
     if token:
         env["GH_TOKEN"] = token
@@ -231,6 +265,12 @@ async def prepare_execution(goal: dict, workspace: dict) -> ExecEnv:
         keyfile, git_ssh = prepare_ssh(key_enc, keydir)
         if git_ssh:
             env["GIT_SSH_COMMAND"] = git_ssh
+        # Enable long paths for Windows (260-char limit)
+        env.setdefault("GIT_CONFIG_COUNT", "0")
+        idx = int(env["GIT_CONFIG_COUNT"])
+        env[f"GIT_CONFIG_KEY_{idx}"] = "core.longpaths"
+        env[f"GIT_CONFIG_VALUE_{idx}"] = "true"
+        env["GIT_CONFIG_COUNT"] = str(idx + 1)
         branch = await clone_or_pull(ssh_url, workdir, env)
     else:
         workdir.mkdir(parents=True, exist_ok=True)
@@ -238,7 +278,7 @@ async def prepare_execution(goal: dict, workspace: dict) -> ExecEnv:
     return ExecEnv(
         workdir=workdir,
         env=env,
-        plugins=plugin_dirs(),
+        plugins=plugin_dirs(selected=goal.get("plugins") or []),
         keydir=keydir,
         branch_hint=branch,
     )

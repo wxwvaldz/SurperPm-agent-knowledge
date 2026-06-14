@@ -12,6 +12,15 @@ from app.services.knowledge_store import KnowledgeStore, get_store
 
 router = APIRouter()
 
+_bg_tasks: set[asyncio.Task] = set()
+
+
+def _spawn_bg(coro) -> asyncio.Task:
+    task = asyncio.create_task(coro)
+    _bg_tasks.add(task)
+    task.add_done_callback(_bg_tasks.discard)
+    return task
+
 
 class DiscussionCreate(BaseModel):
     content: str
@@ -19,11 +28,12 @@ class DiscussionCreate(BaseModel):
     parent_id: int | None = None
     topic_id: int | None = None
     image_data_uri: str | None = None
+    card_response: dict | None = None
 
 
 @router.get("")
 async def list_discussions(
-    goal_id: int,
+    goal_id: str,
     topic_id: int | None = None,
     limit: int = 50,
     offset: int = 0,
@@ -41,7 +51,7 @@ async def list_discussions(
 
 @router.get("/{discussion_id}")
 async def get_discussion(
-    goal_id: int,
+    goal_id: str,
     discussion_id: int,
     store: KnowledgeStore = Depends(get_store),
     _user: dict = Depends(require_auth),
@@ -57,7 +67,7 @@ async def get_discussion(
 
 @router.post("", status_code=201)
 async def create_discussion(
-    goal_id: int,
+    goal_id: str,
     body: DiscussionCreate,
     store: KnowledgeStore = Depends(get_store),
     user: dict = Depends(require_auth),
@@ -78,6 +88,8 @@ async def create_discussion(
     }
     if body.image_data_uri:
         disc_data["image_data_uri"] = body.image_data_uri
+    if body.card_response:
+        disc_data["card_response"] = body.card_response
     discussion = await store.create_discussion(disc_data)
 
     mentioned_ids = parse_goal_mentions(body.content)
@@ -90,7 +102,7 @@ async def create_discussion(
                 "workspace_id": workspace_id,
                 "status": "doing",
             })
-            asyncio.create_task(_execute_goal_bg(workspace_id, mid))
+            _spawn_bg(_execute_goal_bg(workspace_id, mid))
 
     await bus.emit(DISCUSSION_CREATED, {
         "id": discussion["id"],
@@ -105,7 +117,7 @@ async def create_discussion(
     if body.role == "user":
         from app.services.ai_chat import generate_ai_reply
 
-        asyncio.create_task(
+        _spawn_bg(
             generate_ai_reply(
                 workspace_id, body.content,
                 goal_id=goal_id,

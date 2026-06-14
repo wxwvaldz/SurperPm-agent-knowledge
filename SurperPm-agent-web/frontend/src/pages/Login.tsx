@@ -10,7 +10,6 @@ import { Label } from '@/components/retroui/Label'
 import { Text } from '@/components/retroui/Text'
 import { Alert } from '@/components/retroui/Alert'
 import { Tooltip } from '@/components/retroui/Tooltip'
-import { hasProfileInStorage } from './Profile'
 
 type Step = 'token' | 'select' | 'final'
 
@@ -92,7 +91,7 @@ export default function Login() {
         await api.post('/auth/login', { pat: pat.trim() })
         refresh()
         // Check localStorage for personal profile
-        navigate(hasProfileInStorage() ? '/' : '/profile')
+        navigate('/')
         return
       }
       setStep('select')
@@ -123,7 +122,7 @@ export default function Login() {
         const slug = selectedRepo.name.toLowerCase().replace(/[^a-z0-9-]/g, '-')
         ws = await api.post<{ id: string; name: string; slug: string }>('/workspaces', { name: selectedRepo.name, slug, repo_url: repoFullName })
       }
-      navigate(`/profile`)
+      navigate('/')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Login failed, please retry')
     } finally {

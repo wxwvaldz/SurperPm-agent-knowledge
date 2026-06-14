@@ -11,12 +11,11 @@ import { Button } from "@/components/retroui/Button";
 import { Textarea } from "@/components/retroui/Textarea";
 
 export default function GoalSettingsPage() {
-  const { goalId: goalIdStr } = useParams<{ goalId: string }>();
-  const goalId = Number(goalIdStr);
-  const valid = !!goalIdStr && !isNaN(goalId);
+  const { goalId } = useParams<{ goalId: string }>();
+  const valid = !!goalId;
   const queryClient = useQueryClient();
 
-  const { data: goal } = useQuery({ ...goalDetailOptions(goalId), enabled: valid });
+  const { data: goal } = useQuery({ ...goalDetailOptions(goalId!), enabled: valid });
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -33,7 +32,7 @@ export default function GoalSettingsPage() {
       api.patch(`/goals/${goalId}`, body),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: goalKeys.all() });
-      queryClient.invalidateQueries({ queryKey: goalKeys.detail(goalId) });
+      queryClient.invalidateQueries({ queryKey: goalKeys.detail(goalId!) });
     },
   });
 
@@ -50,7 +49,7 @@ export default function GoalSettingsPage() {
   if (!valid) return null;
 
   return (
-    <div className="flex flex-col h-full p-6 overflow-auto">
+    <div className="flex flex-col h-full p-4 overflow-auto">
     <div className="space-y-6 max-w-lg">
       <Card>
         <Card.Header>
@@ -97,13 +96,13 @@ export default function GoalSettingsPage() {
         </Card.Content>
       </Card>
 
-      <GoalReposCard goalId={goalId} repos={repos} />
+      <GoalReposCard goalId={goalId!} repos={repos} />
     </div>
     </div>
   );
 }
 
-function GoalReposCard({ goalId, repos }: { goalId: number; repos: string[] }) {
+function GoalReposCard({ goalId, repos }: { goalId: string; repos: string[] }) {
   const queryClient = useQueryClient();
   const [newUrl, setNewUrl] = useState("");
 
@@ -111,7 +110,7 @@ function GoalReposCard({ goalId, repos }: { goalId: number; repos: string[] }) {
     mutationFn: (updated: string[]) =>
       api.patch(`/goals/${goalId}`, { repos: JSON.stringify(updated) }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: goalKeys.detail(goalId) });
+      queryClient.invalidateQueries({ queryKey: goalKeys.detail(goalId!) });
     },
   });
 

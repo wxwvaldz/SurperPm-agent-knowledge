@@ -11,12 +11,12 @@ const THEME = {
   brightBlack: "#525252",
 };
 
-function wsUrl(goalId: number): string {
+function wsUrl(goalId: string | number): string {
   const base = import.meta.env.VITE_WS_URL ?? `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}`;
   return `${base}/ws/goal/${goalId}/term`;
 }
 
-export function GoalConsole({ goalId }: { goalId: number }) {
+export function GoalConsole({ goalId }: { goalId: string | number }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [connected, setConnected] = useState(false);
 
@@ -85,7 +85,7 @@ export function GoalConsole({ goalId }: { goalId: number }) {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center gap-2 px-2 py-1 border-b-2 border-border bg-muted/30 shrink-0">
+      <div className="flex items-center gap-2 px-2 py-1 border-b border-border bg-muted/30 shrink-0">
         <span
           className={`w-2 h-2 rounded-full ${connected ? "bg-green-500" : "bg-red-500"}`}
           title={connected ? "connected" : "disconnected"}

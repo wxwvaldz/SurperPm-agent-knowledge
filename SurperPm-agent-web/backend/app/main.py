@@ -1,6 +1,12 @@
 """FastAPI app entry for SuperPmAgent-web."""
 import asyncio
 import logging
+import os
+
+# When using uvicorn --reload on Windows, the worker subprocess may use
+# SelectorEventLoop which raises NotImplementedError for subprocess operations.
+# Start via 'python run.py' instead of raw uvicorn for proper event loop setup.
+# See run.py for the ProactorEventLoop monkey-patch applied before uvicorn inits.
 
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
@@ -14,11 +20,11 @@ from fastapi.responses import FileResponse
 from app.database import create_db_and_tables
 from app.routes import agents as agents_routes
 from app.routes import auth as auth_routes
+from app.routes import chat as chat_routes
 from app.routes import config as config_routes
 from app.routes import discussions as discussions_routes
 from app.routes import discussions_standalone as discussions_standalone_routes
 from app.routes import global_config as global_config_routes
-from app.routes import goal_groups as goal_groups_routes
 from app.routes import goals as goals_routes
 from app.routes import knowledge as knowledge_routes
 from app.routes import learnings as learnings_routes
@@ -33,9 +39,8 @@ from app.routes import ws as ws_routes
 from app.routes import ws_browser as ws_browser_routes
 from app.services.browser_manager import browser_manager
 from app.services.event_bus import ALL_EVENTS, bus
-from app.services.knowledge_distiller import DEFAULT_DISTILL_CONFIG, run_distill_cycle
 from app.services.knowledge_sync import ensure_knowledge_cloned
-from app.services.platform import IS_WIN, supports_terminal
+from app.services.platform import supports_terminal
 from app.ws.hub import hub
 
 if supports_terminal():
@@ -57,8 +62,17 @@ def _register_bus_to_hub_bridge():
 
 _logger = logging.getLogger(__name__)
 
+_bg_tasks: set[asyncio.Task] = set()
+
+
+def _spawn_bg(coro, *, name: str | None = None) -> asyncio.Task:
+    task = asyncio.create_task(coro, name=name)
+    _bg_tasks.add(task)
+    task.add_done_callback(_bg_tasks.discard)
+    return task
+
+
 KNOWLEDGE_POLL_INTERVAL = 300  # seconds — pull the knowledge mirror every 5 min
-DISTILL_POLL_INTERVAL = 3600  # run distill cycle every hour
 
 
 async def _background_knowledge_sync():
@@ -91,36 +105,6 @@ async def _poll_knowledge_sync():
             _logger.warning("knowledge poll sync failed", exc_info=True)
 
 
-async def _poll_distill():
-    """Periodically run the knowledge distill cycle based on configured interval."""
-    import json
-
-    await asyncio.sleep(60)  # initial delay — let knowledge sync finish first
-    while True:
-        try:
-            from app.services.knowledge_store import get_store
-            store = get_store()
-            store_settings = store.get_settings()
-            config = DEFAULT_DISTILL_CONFIG
-            distill_raw = store_settings.get("distill_config")
-            if distill_raw:
-                try:
-                    config = (
-                        json.loads(distill_raw) if isinstance(distill_raw, str) else distill_raw
-                    )
-                except (json.JSONDecodeError, TypeError):
-                    pass
-
-            interval = config.get("schedule", {}).get("interval_hours", 24) * 3600
-            await asyncio.sleep(interval)
-            await run_distill_cycle(config)
-        except asyncio.CancelledError:
-            break
-        except Exception:
-            _logger.warning("distill poll cycle failed", exc_info=True)
-            await asyncio.sleep(DISTILL_POLL_INTERVAL)
-
-
 GOAL_SCHEDULER_INTERVAL = 30
 
 
@@ -151,7 +135,7 @@ async def _poll_goal_scheduler():
                     ws_id = goal.get("workspace_id", "")
                     _logger.info("Scheduler: executing delayed goal %s", gid)
                     await store.update("goals", gid, {"status": "doing"})
-                    asyncio.create_task(execute_goal(ws_id, gid))
+                    _spawn_bg(execute_goal(ws_id, gid))
 
                 # Scheduled: check cron-like interval
                 schedule = goal.get("schedule")
@@ -178,7 +162,7 @@ async def _poll_goal_scheduler():
                         await store.update("goals", gid, {
                             "last_scheduled_run": now,
                         })
-                        asyncio.create_task(execute_goal(ws_id, gid))
+                        _spawn_bg(execute_goal(ws_id, gid))
 
         except asyncio.CancelledError:
             break
@@ -195,7 +179,7 @@ async def _recover_stuck_executions():
 
     store = get_store()
     exes = store.list("executions")
-    stuck = [e for e in exes if e.get("status") in ("running", "pending")]
+    stuck = [e for e in exes if e.get("status") in ("running", "pending", "paused")]
     if not stuck:
         return
     now = datetime.now(UTC).isoformat()
@@ -210,33 +194,17 @@ async def _recover_stuck_executions():
     for gid in goal_ids:
         goal = store.get("goals", gid)
         if goal and goal.get("status") == "doing":
-            if goal.get("schedule"):
-                await store.update("goals", gid, {"status": "scheduled"})
-                _logger.info("Reset scheduled goal %s back to 'scheduled'", gid)
-            elif goal.get("delay_until"):
-                await store.update("goals", gid, {"status": "todo"})
-                _logger.info("Reset delayed goal %s back to 'todo'", gid)
-            else:
-                await store.update("goals", gid, {"status": "failed"})
+            await store.update("goals", gid, {"status": "failed"})
+            _logger.info("Recovered stuck goal %s → failed (manual retry required)", gid)
     _logger.info("Recovered %d stuck execution(s) on startup", len(stuck))
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Warn on Windows when running without ProactorEventLoop (subprocess may fail)
-    if IS_WIN:
-        loop = asyncio.get_running_loop()
-        if type(loop).__name__ != "ProactorEventLoop":
-            _logger.warning(
-                "Windows detected with %s — some features (Playwright, MCP tests) "
-                "may not work. Start with 'python run.py' for best compatibility.",
-                type(loop).__name__,
-            )
-
     await create_db_and_tables()
     await _recover_stuck_executions()
 
-    asyncio.create_task(_background_knowledge_sync())
+    _spawn_bg(_background_knowledge_sync())
 
     _register_bus_to_hub_bridge()
 
@@ -245,17 +213,14 @@ async def lifespan(app: FastAPI):
     except (NotImplementedError, OSError) as e:
         _logger.warning("shared browser disabled: %s", e)
 
-    poll_task = asyncio.create_task(_poll_knowledge_sync())
-    distill_task = asyncio.create_task(_poll_distill())
-    scheduler_task = asyncio.create_task(_poll_goal_scheduler())
+    poll_task = _spawn_bg(_poll_knowledge_sync())
+    scheduler_task = _spawn_bg(_poll_goal_scheduler())
     app.state.hub = hub
     app.state.bus = bus
     app.state.knowledge_poll_task = poll_task
-    app.state.distill_task = distill_task
     app.state.scheduler_task = scheduler_task
     yield
     poll_task.cancel()
-    distill_task.cancel()
     scheduler_task.cancel()
     try:
         await browser_manager.stop()
@@ -272,19 +237,19 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:5174", "http://localhost:5175", "http://localhost:5176"],
+    allow_origins=os.getenv("CORS_ORIGINS", "http://localhost:5173,http://localhost:5174,http://localhost:5175,http://localhost:5176").split(","),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 app.include_router(auth_routes.router, prefix="/api/auth", tags=["auth"])
+app.include_router(chat_routes.router, prefix="/api/chat", tags=["chat"])
 app.include_router(setup_routes.router, prefix="/api/setup", tags=["setup"])
 app.include_router(config_routes.router, prefix="/api/config", tags=["config"])
 app.include_router(knowledge_routes.router, prefix="/api/knowledge", tags=["knowledge"])
 app.include_router(learnings_routes.router, prefix="/api/learnings", tags=["learnings"])
 app.include_router(workspace_routes.router, prefix="/api/workspaces", tags=["workspaces"])
-app.include_router(goal_groups_routes.router, prefix="/api/goal-groups", tags=["goal-groups"])
 app.include_router(goals_routes.router, prefix="/api/goals", tags=["goals"])
 app.include_router(
     discussions_routes.router,
@@ -350,8 +315,8 @@ async def serve_artifact(file_path: str, request: Request):
     from app.services.knowledge_store import get_store
 
     store = get_store()
-    root = store._root.parent
-    artifacts_dir = root / "artifacts"
+    root = store.knowledge_root
+    artifacts_dir = store.logs_root / "goal" / "workspace"
     target = (artifacts_dir / file_path).resolve()
 
     if not str(target).startswith(str(artifacts_dir.resolve())):
@@ -361,6 +326,9 @@ async def serve_artifact(file_path: str, request: Request):
         from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Artifact not found")
 
+    viewable = {".html", ".htm", ".svg", ".png", ".jpg", ".jpeg", ".gif", ".pdf", ".txt", ".md"}
+    if target.suffix.lower() in viewable:
+        return FileResponse(target)
     return FileResponse(target, filename=target.name)
 
 

@@ -87,12 +87,12 @@ export function CreateSkillDialog({ workspaceId }: CreateSkillDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) resetForm(); }}>
-      <Dialog.Trigger>
-        <Button>+ New Skill</Button>
+      <Dialog.Trigger render={<Button />}>
+        + New Skill
       </Dialog.Trigger>
       <Dialog.Content size="md">
         <Dialog.Header>
-          <Text as="h3" className="text-base font-bold">New Skill</Text>
+          <Text as="h3" className="text-sm font-bold">New Skill</Text>
         </Dialog.Header>
 
         <div className="p-4 space-y-4">

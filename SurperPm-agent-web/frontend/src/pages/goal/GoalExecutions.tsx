@@ -2,11 +2,13 @@ import { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
+  Ban,
   CheckCircle,
   XCircle,
   Clock,
   Loader2,
   ExternalLink,
+  Pause,
   Play,
   GitBranch,
   ChevronDown,
@@ -68,7 +70,7 @@ function LogPanel({ logs, autoScroll }: { logs: LogLine[]; autoScroll: boolean }
   return (
     <div
       ref={ref}
-      className="border-t-2 border-border max-h-80 overflow-auto bg-background p-3 font-mono text-xs leading-relaxed space-y-1"
+      className="border-t border-border max-h-80 overflow-auto bg-background p-3 font-mono text-xs leading-relaxed space-y-1"
     >
       {logs.map((line, i) => (
         <LogLine key={i} line={line} />
@@ -79,31 +81,39 @@ function LogPanel({ logs, autoScroll }: { logs: LogLine[]; autoScroll: boolean }
 
 /* ─── status config ─── */
 
-const statusCfg: Record<string, { label: string; color: string; bar: string }> = {
-  pending:  { label: "Pending",  color: "text-foreground/30", bar: "bg-foreground/30" },
-  running:  { label: "Running",  color: "text-yellow-600",   bar: "bg-yellow-400" },
-  success:  { label: "Success",  color: "text-green-600",    bar: "bg-green-400" },
-  failed:   { label: "Failed",   color: "text-red-600",      bar: "bg-red-400" },
-  timeout:  { label: "Timeout",  color: "text-orange-600",   bar: "bg-orange-400" },
+const statusCfg: Record<string, { label: string; color: string; bar: string; icon: typeof Loader2; badgeVariant: string }> = {
+  pending:  { label: "Pending",  color: "text-foreground/30", bar: "bg-foreground/20", icon: Clock, badgeVariant: "pending" },
+  running:  { label: "Running",  color: "text-yellow-600",   bar: "bg-yellow-400", icon: Loader2, badgeVariant: "running" },
+  paused:   { label: "Paused",   color: "text-blue-600",     bar: "bg-blue-400",   icon: Pause, badgeVariant: "paused" },
+  success:  { label: "Success",  color: "text-green-600",    bar: "bg-green-400",  icon: CheckCircle, badgeVariant: "success" },
+  failed:   { label: "Failed",   color: "text-red-600",      bar: "bg-red-400",    icon: XCircle, badgeVariant: "failed" },
+  timeout:  { label: "Timeout",  color: "text-orange-600",   bar: "bg-orange-400", icon: Clock, badgeVariant: "timeout" },
 };
 
 /* ─── page ─── */
 
 export default function GoalExecutionsPage() {
-  const { goalId: goalIdStr } = useParams<{ goalId: string }>();
-  const goalId = Number(goalIdStr);
-  const valid = !!goalIdStr && !isNaN(goalId);
+  const { goalId } = useParams<{ goalId: string }>();
+  const valid = !!goalId;
   const queryClient = useQueryClient();
   const [consoleOpen, setConsoleOpen] = useState(false);
 
-  const { data: goal } = useQuery({ ...goalDetailOptions(goalId), enabled: valid });
-  const { data: executions = [], isLoading } = useQuery({ ...executionListOptions(goalId), enabled: valid });
-  const canRun = goal?.status === "todo" || goal?.status === "failed";
+  const { data: goal } = useQuery({ ...goalDetailOptions(goalId!), enabled: valid });
+  const { data: executions = [], isLoading } = useQuery({ ...executionListOptions(goalId!), enabled: valid });
+  const canRun =
+    goal?.status === "todo" ||
+    goal?.status === "scheduled" ||
+    goal?.status === "failed" ||
+    (goal?.status === "doing" && !executions.find(e => e.status === "running" || e.status === "paused"));
 
-  if (!valid) return null;
-
-  // Clear stale log data from previous goal when navigating between goals.
-  useEffect(() => { useExecutionStore.getState().clearLogs(); }, [goalId]);
+  useEffect(() => {
+    if (!valid) return;
+    useExecutionStore.getState().setActiveGoal(goalId!);
+    return () => {
+      useExecutionStore.getState().setActiveGoal(null);
+      queryClient.removeQueries({ queryKey: executionKeys.list(goalId!) });
+    };
+  }, [goalId, valid, queryClient]);
 
   const execMutation = useMutation({
     mutationFn: () => api.post(`/goals/${goalId}/execute`),
@@ -113,8 +123,37 @@ export default function GoalExecutionsPage() {
     },
   });
 
+  // In-flight execution: running or paused — show control buttons.
+  const inFlight = executions.find(e => e.status === "running" || e.status === "paused");
+  const isPaused = inFlight?.status === "paused";
+
+  const pauseMutation = useMutation({
+    mutationFn: (id: string) => api.post(`/goals/${goalId}/executions/${id}/pause`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: executionKeys.all(goalId) });
+    },
+  });
+  const resumeMutation = useMutation({
+    mutationFn: (id: string) => api.post(`/goals/${goalId}/executions/${id}/resume`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: executionKeys.all(goalId) });
+    },
+  });
+  const cancelMutation = useMutation({
+    mutationFn: (id: string) => api.post(`/goals/${goalId}/executions/${id}/cancel`),
+    onMutate: () => {
+      useExecutionStore.getState().clearProgress();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: executionKeys.all(goalId) });
+      queryClient.invalidateQueries({ queryKey: goalKeys.all() });
+    },
+  });
+
+  if (!valid) return null;
+
   return (
-    <div className="flex flex-col h-full p-6">
+    <div className="flex flex-col h-full p-4">
       {/* header */}
       <div className="flex items-center justify-between shrink-0 mb-3">
         <div>
@@ -126,19 +165,37 @@ export default function GoalExecutionsPage() {
             <TerminalSquare size={14} />
             Console
           </Button>
-          {canRun && (
+          {inFlight ? (
+            <>
+              {isPaused ? (
+                <Button onClick={() => resumeMutation.mutate(inFlight.id)} disabled={resumeMutation.isPending}>
+                  <Play size={14} />
+                  {resumeMutation.isPending ? "..." : "Resume"}
+                </Button>
+              ) : (
+                <Button variant="outline" onClick={() => pauseMutation.mutate(inFlight.id)} disabled={pauseMutation.isPending}>
+                  <Pause size={14} />
+                  {pauseMutation.isPending ? "..." : "Pause"}
+                </Button>
+              )}
+              <Button variant="outline" onClick={() => cancelMutation.mutate(inFlight.id)} disabled={cancelMutation.isPending}>
+                <Ban size={14} />
+                {cancelMutation.isPending ? "..." : "Cancel"}
+              </Button>
+            </>
+          ) : canRun ? (
             <Button onClick={() => execMutation.mutate()} disabled={execMutation.isPending}>
               <Play size={14} />
               {execMutation.isPending ? "Starting..." : "Run"}
             </Button>
-          )}
+          ) : null}
         </div>
       </div>
 
       <Dialog open={consoleOpen} onOpenChange={setConsoleOpen}>
         <Dialog.Content size="4xl" className="h-[80vh]">
           <Dialog.Header>
-            <Text as="h3" className="text-sm">Goal #{goalId} Console</Text>
+            <Text as="h3" className="text-sm font-bold">Goal #{goalId} Console</Text>
           </Dialog.Header>
           <div className="h-[calc(80vh-3rem)]">
             {consoleOpen && <GoalConsole goalId={goalId} />}
@@ -180,7 +237,9 @@ export default function GoalExecutionsPage() {
       {/* list */}
       {!isLoading && executions.length > 0 && (
         <div className="space-y-3">
-          {executions.map((exec) => (
+          {executions
+            .filter((exec) => String(exec.goal_id) === String(goalId))
+            .map((exec) => (
             <ExecutionCard key={exec.id} exec={exec} />
           ))}
         </div>
@@ -194,14 +253,22 @@ export default function GoalExecutionsPage() {
 
 function ExecutionCard({ exec }: { exec: Execution }) {
   const c = statusCfg[exec.status] ?? statusCfg.pending;
+  const StatusIcon = c.icon;
   const isRunning = exec.status === "running";
 
   const liveLogs = useExecutionStore((s) => s.logsByExec[exec.id]);
-  const logs: LogLine[] = isRunning
-    ? liveLogs ?? []
-    : (exec.logs as LogLine[] | null | undefined) ?? liveLogs ?? [];
+  // Prefer live WebSocket logs while running; fall back to DB-persisted logs.
+  const baseLogs: LogLine[] = isRunning
+    ? (liveLogs ?? [])
+    : ((exec.logs as LogLine[] | null | undefined) ?? liveLogs ?? []);
+  // Always show the error line if present (even when logs are empty)
+  const logs: LogLine[] = exec.error && !baseLogs.some(l => l.kind === "error")
+    ? [...baseLogs, { kind: "error" as const, text: exec.error }]
+    : baseLogs;
 
-  const [logOpen, setLogOpen] = useState(isRunning);
+  const isFailed = exec.status === "failed" || exec.status === "timeout";
+  // Always open logs for running or failed; remember user choice otherwise
+  const [logOpen, setLogOpen] = useState(isRunning || isFailed);
   const [, tick] = useState(0);
 
   useEffect(() => {
@@ -211,37 +278,35 @@ function ExecutionCard({ exec }: { exec: Execution }) {
     return () => clearInterval(t);
   }, [isRunning]);
 
-  const duration = formatDuration(exec.started_at, exec.finished_at);
+  const duration = formatDuration(
+    exec.started_at,
+    exec.status === "paused" ? (exec.paused_at ?? exec.finished_at) : exec.finished_at,
+  );
 
   return (
-    <div className="border-2 border-border bg-card shadow-[3px_3px_0_0_#000]">
+    <div className="border border-border bg-card">
       {/* top bar + header */}
       <div className={`h-1 w-full ${c.bar}`} />
       <div className="flex items-center gap-3 px-4 py-3">
-        {/* status dot — the ONE and ONLY spinning indicator */}
-        {exec.status === "running" ? (
-          <Loader2 size={16} className="shrink-0 text-yellow-600 animate-spin" />
-        ) : exec.status === "success" ? (
-          <CheckCircle size={16} className="shrink-0 text-green-600" />
-        ) : exec.status === "failed" ? (
-          <XCircle size={16} className="shrink-0 text-red-600" />
-        ) : exec.status === "timeout" ? (
-          <Clock size={16} className="shrink-0 text-orange-600" />
-        ) : (
-          <div className="w-[6px] h-[6px] shrink-0 border-2 border-foreground/20" />
-        )}
+        {/* status icon */}
+        <StatusIcon size={16} className={`shrink-0 ${c.color} ${isRunning ? "animate-spin" : ""}`} />
 
-        <Badge size="sm">{c.label}</Badge>
+        <Badge size="sm" variant={c.badgeVariant as any}>{c.label}</Badge>
 
         {duration && (
           <span className="text-xs text-foreground/40 font-mono tabular-nums">{duration}</span>
         )}
 
+        {Array.isArray(exec.artifacts) && exec.artifacts.length > 0 && (
+          <span className="text-[10px] text-foreground font-medium border border-border px-1.5 py-0.5 rounded-sm">
+            {exec.artifacts.length} artifact{exec.artifacts.length > 1 ? "s" : ""}
+          </span>
+        )}
         <span className="text-xs text-foreground/40 ml-auto">{formatDate(exec.created_at)}</span>
       </div>
 
       {/* body */}
-      {(exec.summary || exec.token_used != null || exec.branch || exec.pr_url || exec.error) && (
+      {(exec.summary || exec.token_used != null || exec.branch || exec.pr_url || exec.error || (Array.isArray(exec.artifacts) && exec.artifacts.length > 0)) && (
         <div className="px-4 pb-3 space-y-2">
           {exec.summary && (
             <p className="text-sm text-foreground/70">{exec.summary}</p>
@@ -267,6 +332,23 @@ function ExecutionCard({ exec }: { exec: Execution }) {
             {exec.error && (
               <span className="text-destructive font-bold">{exec.error}</span>
             )}
+            {Array.isArray(exec.artifacts) && exec.artifacts.length > 0 && (
+              <div className="w-full pt-1">
+                <p className="text-[10px] text-foreground/40 mb-1">Artifacts:</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {exec.artifacts.map((a: { name: string; url: string }) => (
+                    <a
+                      key={a.url}
+                      href={a.url}
+                      download
+                      className="text-[10px] text-foreground hover:underline font-medium px-1.5 py-0.5 border border-border bg-muted/30 rounded-sm"
+                    >
+                      {a.name}
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
             {exec.status === "failed" && (
               <a
                 href="/"
@@ -281,16 +363,21 @@ function ExecutionCard({ exec }: { exec: Execution }) {
       )}
 
       {/* logs toggle */}
-      {logs.length > 0 && (
+      {(logs.length > 0 || isFailed) && (
         <>
           <button
             onClick={() => setLogOpen(!logOpen)}
-            className="flex items-center gap-1.5 w-full border-t-2 border-border px-4 py-2 text-xs font-head text-foreground/50 hover:bg-accent transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 w-full border-t border-border px-4 py-2 text-xs font-head text-foreground/50 hover:bg-accent transition-colors cursor-pointer"
           >
             <ChevronDown size={12} className={`transition-transform ${logOpen ? "rotate-180" : ""}`} />
             Logs ({logs.length})
           </button>
-          {logOpen && (
+          {logOpen && logs.length === 0 && isRunning && (
+            <div className="border-t border-border px-4 py-3 text-xs text-foreground/40 font-mono">
+              Waiting for agent output…
+            </div>
+          )}
+          {logOpen && logs.length > 0 && (
             <LogPanel logs={logs} autoScroll={isRunning} />
           )}
         </>

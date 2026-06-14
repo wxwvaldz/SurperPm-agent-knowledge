@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Check, Hash, Coins, User, GitBranch, Sparkles, Calendar } from "lucide-react";
+import { Plus, Check, Hash, Coins, User, GitBranch, Sparkles, Calendar, Puzzle } from "lucide-react";
 import { api } from "../../lib/api";
 import { goalKeys } from "../../lib/queries/goals";
 import {
@@ -14,6 +14,7 @@ import { Input } from "@/components/retroui/Input";
 import { Textarea } from "@/components/retroui/Textarea";
 import { Text } from "@/components/retroui/Text";
 import { Select } from "@/components/retroui/Select";
+import { pluginInstalledOptions } from "@/lib/queries/plugins";
 
 interface TeamMember {
   login: string;
@@ -37,13 +38,12 @@ function SectionLabel({ icon: Icon, children }: { icon: typeof Hash; children: R
 }
 
 export function CreateGoalDialog({
-  defaultGroupId,
+  defaultTopicId,
 }: {
-  defaultGroupId?: number;
+  defaultTopicId?: number;
 }) {
   const [open, setOpen] = useState(false);
-  const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
-  const [title, setTitle] = useState(today + " ");
+  const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [deadline, setDeadline] = useState(new Date().toISOString().split("T")[0]);
   const [tokenBudget, setTokenBudget] = useState("");
@@ -53,6 +53,7 @@ export function CreateGoalDialog({
   const [schedule, setSchedule] = useState("");
   const [delayMinutes, setDelayMinutes] = useState("");
   const [target, setTarget] = useState("");
+  const [selectedPlugins, setSelectedPlugins] = useState<string[]>([]);
   const queryClient = useQueryClient();
   const { data: workspaces = [] } = useQuery(workspaceListOptions());
   const defaultWsId = workspaces[0]?.id ?? "";
@@ -62,6 +63,7 @@ export function CreateGoalDialog({
     queryFn: () => api.get<TeamProfile>("/setup/team-profile"),
   });
   const members = teamProfile?.members ?? [];
+  const { data: installedPlugins = [] } = useQuery(pluginInstalledOptions());
 
   const addRepoMutation = useMutation({
     mutationFn: (url: string) =>
@@ -95,7 +97,7 @@ export function CreateGoalDialog({
         workspace_id: defaultWsId,
         title,
         description: description || null,
-        ...(defaultGroupId != null ? { group_id: defaultGroupId } : {}),
+        ...(defaultTopicId != null ? { topic_id: defaultTopicId } : {}),
         ...(deadline ? { deadline } : {}),
         ...(tokenBudget ? { token_budget: parseInt(tokenBudget, 10) } : {}),
         ...(assignedTo.trim() ? { assigned_to: assignedTo.trim() } : {}),
@@ -105,10 +107,11 @@ export function CreateGoalDialog({
           delay_until: new Date(Date.now() + parseInt(delayMinutes, 10) * 60000).toISOString(),
         } : {}),
         ...(target ? { target } : {}),
+        ...(selectedPlugins.length ? { plugins: selectedPlugins } : {}),
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: goalKeys.all() });
-      setTitle(new Date().toISOString().slice(0, 10).replace(/-/g, "") + " ");
+      setTitle("");
       setDescription("");
       setDeadline(new Date().toISOString().split("T")[0]);
       setTokenBudget("");
@@ -118,6 +121,7 @@ export function CreateGoalDialog({
       setSchedule("");
       setDelayMinutes("");
       setTarget("");
+      setSelectedPlugins([]);
       setOpen(false);
     },
   });
@@ -136,11 +140,11 @@ export function CreateGoalDialog({
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <Dialog.Content size="md">
+        <Dialog.Content size="lg">
           <Dialog.Header>
             <div className="flex items-center gap-2">
               <Sparkles size={16} />
-              <Text as="h3" className="text-sm">Create Goal</Text>
+              <Text as="h3" className="text-sm font-bold">Create Goal</Text>
             </div>
           </Dialog.Header>
 
@@ -171,7 +175,7 @@ export function CreateGoalDialog({
             </div>
 
             {/* ── Deadline, Budget & Assignee ── */}
-            <div className="grid grid-cols-3 divide-x-2 divide-border">
+            <div className="grid grid-cols-3 divide-x divide-border">
               <div className="p-3 space-y-1">
                 <SectionLabel icon={Calendar}>Deadline</SectionLabel>
                 <Input
@@ -213,34 +217,32 @@ export function CreateGoalDialog({
               </div>
             </div>
 
-            {/* ── Schedule & Delay ── */}
-            <div className="grid grid-cols-2 divide-x-2 divide-border">
+            {/* ── Schedule / Delay / Target ── */}
+            <div className="grid grid-cols-3 divide-x divide-border">
               <div className="p-3 space-y-1">
-                <SectionLabel icon={Calendar}>Schedule (hours)</SectionLabel>
+                <SectionLabel icon={Calendar}>Schedule (h)</SectionLabel>
                 <Input
                   type="number"
                   value={schedule}
                   onChange={(e) => setSchedule(e.target.value)}
-                  placeholder="e.g. 24 = every 24h"
-                  min="0"
+                  placeholder="e.g. 24"
+                  min="1"
                 />
               </div>
               <div className="p-3 space-y-1">
-                <SectionLabel icon={Calendar}>Delay (minutes)</SectionLabel>
+                <SectionLabel icon={Calendar}>Delay (min)</SectionLabel>
                 <Input
                   type="number"
                   value={delayMinutes}
                   onChange={(e) => setDelayMinutes(e.target.value)}
-                  placeholder="e.g. 30 = start in 30min"
-                  min="0"
+                  placeholder="e.g. 30"
+                  min="1"
                 />
               </div>
-            </div>
-
-            {/* ── Target ── */}
-            <div className="p-3 space-y-1">
-              <SectionLabel icon={GitBranch}>Target</SectionLabel>
-              <AgentSelect value={target} onChange={setTarget} />
+              <div className="p-3 space-y-1">
+                <SectionLabel icon={GitBranch}>Target</SectionLabel>
+                <AgentSelect value={target} onChange={(v) => setTarget(v ?? "")} />
+              </div>
             </div>
 
             {/* ── Repos ── */}
@@ -256,14 +258,14 @@ export function CreateGoalDialog({
                         key={url}
                         type="button"
                         onClick={() => toggleRepo(url)}
-                        className={`flex w-full items-center gap-2.5 border px-2.5 py-1.5 text-left transition-all ${
+                        className={`flex w-full items-center gap-2.5 border px-3 py-2 text-left transition-all ${
                           selected
-                            ? "border-border bg-primary shadow-[2px_2px_0_0_#000] translate-x-0"
+                            ? "border-border bg-primary translate-x-0"
                             : "border-border bg-background hover:bg-accent"
                         }`}
                       >
                         <span
-                          className={`flex h-4 w-4 shrink-0 items-center justify-center border-2 border-border ${
+                          className={`flex h-4 w-4 shrink-0 items-center justify-center border border-border ${
                             selected ? "bg-foreground text-background" : "bg-background"
                           }`}
                         >
@@ -306,6 +308,41 @@ export function CreateGoalDialog({
               )}
             </div>
 
+            {/* ── Plugins ── */}
+            {installedPlugins.length > 0 && (
+              <div className="p-3 space-y-2">
+                <SectionLabel icon={Puzzle}>Plugins</SectionLabel>
+                <p className="text-[10px] text-muted-foreground">Select which plugins this goal can use. Leave empty for all.</p>
+                <div className="space-y-1.5">
+                  {installedPlugins.map((p) => {
+                    const active = selectedPlugins.includes(p.name);
+                    return (
+                      <button
+                        key={p.name}
+                        type="button"
+                        onClick={() => setSelectedPlugins(prev =>
+                          active ? prev.filter(n => n !== p.name) : [...prev, p.name]
+                        )}
+                        className={`flex w-full items-center gap-2.5 border px-3 py-2 text-left transition-all ${
+                          active ? "border-border bg-primary" : "border-border bg-background hover:bg-accent"
+                        }`}
+                      >
+                        <span className={`flex h-4 w-4 shrink-0 items-center justify-center border border-border ${
+                          active ? "bg-foreground text-background" : "bg-background"
+                        }`}>
+                          {active && <Check size={10} />}
+                        </span>
+                        <span className="text-xs font-medium truncate">{p.name}</span>
+                        {p.description && (
+                          <span className="text-[10px] text-muted-foreground truncate ml-auto">{p.description}</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* ── Footer ── */}
             <div className="p-3">
               <Dialog.Footer>
@@ -333,19 +370,22 @@ export function CreateGoalDialog({
 
 interface AgentInfo { name: string; status: string }
 
-function AgentSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+function AgentSelect({ value, onChange }: { value: string | null; onChange: (v: string | null) => void }) {
+  const handleChange = useCallback((v: string | null) => {
+    onChange(v === "__local__" || v == null ? "" : v);
+  }, [onChange]);
   const { data: agents = [] } = useQuery({
     queryKey: ["agents"],
     queryFn: () => api.get<AgentInfo[]>("/agents"),
   });
 
   return (
-    <Select value={value || "__local__"} onValueChange={(v) => onChange(v === "__local__" ? "" : v)}>
+    <Select value={value || "__local__"} onValueChange={handleChange}>
       <Select.Trigger className="w-full">
-        <Select.Value placeholder="Local (default)" />
+        <Select.Value placeholder="本机（默认）" />
       </Select.Trigger>
       <Select.Content>
-        <Select.Item value="__local__">Local (default)</Select.Item>
+        <Select.Item value="__local__">本机（默认）</Select.Item>
         {agents.map((a) => (
           <Select.Item key={a.name} value={a.name}>
             {a.name} {a.status === "online" ? "🟢" : "⚪"}

@@ -1,6 +1,5 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-@import "@assistant-ui/react-ui/styles/tailwindcss/base-components.css";
 
 :root {
   --font-heading: 'Archivo Black', system-ui, sans-serif;

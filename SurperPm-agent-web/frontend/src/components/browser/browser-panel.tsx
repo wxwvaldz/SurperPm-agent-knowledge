@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type Mous
 import { useBrowserWS, type BrowserTarget } from "@/lib/use-browser-ws";
 import { Button } from "@/components/retroui/Button";
 import { Input } from "@/components/retroui/Input";
-import { ArrowLeft, ArrowRight, RotateCw, Globe, Plus, X, Scissors, BookMarked, Pencil, Trash2, Check, ZoomIn, ZoomOut, Hand, MousePointer2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, RotateCw, Globe, Plus, X, Scissors, BookMarked, Pencil, Trash2, Check, Hand, MousePointer2 } from "lucide-react";
+import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 
 const PRESET_BOOKMARKS: { label: string; url: string }[] = [
   { label: "GitHub", url: "https://github.com" },
@@ -51,23 +52,11 @@ export function BrowserPanel({ target, onScreenshotCapture }: BrowserPanelProps)
   const [showBookmarks, setShowBookmarks] = useState(false);
   const bookmarksRef = useRef<HTMLDivElement>(null);
 
-  // Zoom
-  const [zoom, setZoom] = useState(1);
-  const ZOOM_STEP = 1.3;
-  const MIN_ZOOM = 1;
-  const MAX_ZOOM = 4;
-  const isZoomed = zoom > 1;
-  // panMode: when zoomed, true = drag-to-pan, false = click-to-interact
+  // Zoom/pan via react-zoom-pan-pinch
   const [panMode, setPanMode] = useState(true);
   const togglePanMode = useCallback(() => setPanMode((p) => !p), []);
-  const zoomIn = useCallback(() => setZoom((z) => Math.min(Math.round(z * ZOOM_STEP * 100) / 100, MAX_ZOOM)), []);
-  const zoomOut = useCallback(() => {
-    setZoom((z) => {
-      const next = Math.round((z / ZOOM_STEP) * 100) / 100;
-      return next < MIN_ZOOM ? MIN_ZOOM : next;
-    });
-  }, []);
-  const zoomReset = useCallback(() => setZoom(1), []);
+  const transformRef = useRef<any>(null);
+  const [isZoomed, setIsZoomed] = useState(false);
 
   const persistBookmarks = useCallback(
     (next: string[]) => {
@@ -101,6 +90,15 @@ export function BrowserPanel({ target, onScreenshotCapture }: BrowserPanelProps)
     document.addEventListener("mousedown", onDown);
     return () => document.removeEventListener("mousedown", onDown);
   }, [showBookmarks]);
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const url = (e as CustomEvent).detail;
+      if (url && typeof url === "string") navigate(`http://${window.location.hostname}:8000${url}`);
+    };
+    window.addEventListener("SuperPmAgent:navigate-browser", handler);
+    return () => window.removeEventListener("SuperPmAgent:navigate-browser", handler);
+  }, [navigate]);
 
   // Doodle
   const [isDoodling, setIsDoodling] = useState(false);
@@ -216,40 +214,6 @@ export function BrowserPanel({ target, onScreenshotCapture }: BrowserPanelProps)
     setUrlInput("");
   }, [urlInput, navigate]);
 
-  // Pan-to-scroll (zoom mode)
-  const scrollWrapperRef = useRef<HTMLDivElement>(null);
-  const isPanning = useRef(false);
-  const panStart = useRef({ x: 0, y: 0, sx: 0, sy: 0 });
-
-  const handleZoomMouseDown = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
-      if (e.button !== 0 || isSelecting || isDoodling || !panMode) return;
-      const el = scrollWrapperRef.current;
-      if (!el) return;
-      isPanning.current = true;
-      panStart.current = { x: e.clientX, y: e.clientY, sx: el.scrollLeft, sy: el.scrollTop };
-      e.preventDefault();
-    },
-    [isSelecting, isDoodling, panMode],
-  );
-
-  useEffect(() => {
-    const onMove = (e: globalThis.MouseEvent) => {
-      if (!isPanning.current) return;
-      const el = scrollWrapperRef.current;
-      if (!el) return;
-      el.scrollLeft = panStart.current.sx - (e.clientX - panStart.current.x);
-      el.scrollTop = panStart.current.sy - (e.clientY - panStart.current.y);
-    };
-    const onUp = () => { isPanning.current = false; };
-    document.addEventListener("mousemove", onMove);
-    document.addEventListener("mouseup", onUp);
-    return () => {
-      document.removeEventListener("mousemove", onMove);
-      document.removeEventListener("mouseup", onUp);
-    };
-  }, []);
-
   const toServerCoords = useCallback(
     (e: MouseEvent<HTMLImageElement>) => {
       const img = e.currentTarget;
@@ -345,17 +309,6 @@ export function BrowserPanel({ target, onScreenshotCapture }: BrowserPanelProps)
   const downServerPos = useRef<{ x: number; y: number } | null>(null);
   const DRAG_PX = 5;
 
-  // Click ripple feedback
-  const [ripples, setRipples] = useState<{ id: number; cx: number; cy: number }[]>([]);
-  const rippleId = useRef(0);
-  const addRipple = useCallback((cx: number, cy: number) => {
-    const id = ++rippleId.current;
-    setRipples((prev) => [...prev.slice(-10), { id, cx, cy }]);
-    setTimeout(() => {
-      setRipples((prev) => prev.filter((r) => r.id !== id));
-    }, 600);
-  }, []);
-
   const handleMouseMove = useCallback(
     (e: MouseEvent<HTMLImageElement>) => {
       if (isSelecting) {
@@ -385,12 +338,9 @@ export function BrowserPanel({ target, onScreenshotCapture }: BrowserPanelProps)
       mouseIsDown.current = true;
       const { x, y } = toServerCoords(e);
       downServerPos.current = { x, y };
-      // Visual ripple feedback
-      const rect = e.currentTarget.getBoundingClientRect();
-      addRipple(e.clientX - rect.left, e.clientY - rect.top);
       send({ type: "mouse", x, y, action: "down" });
     },
-    [isSelecting, toServerCoords, toCoords, addRipple],
+    [isSelecting, toServerCoords, toCoords],
   );
 
   const handleMouseUp = useCallback(
@@ -443,11 +393,7 @@ export function BrowserPanel({ target, onScreenshotCapture }: BrowserPanelProps)
   const handleWheel = useCallback(
     (e: WheelEvent<HTMLImageElement>) => {
       if (isSelecting) return;
-      if (e.ctrlKey || e.metaKey) {
-        e.preventDefault();
-        setZoom((z) => Math.min(3, Math.max(0.3, z - e.deltaY * 0.005)));
-        return;
-      }
+      if (e.ctrlKey || e.metaKey) return;
       const { x, y } = toServerCoords(e as unknown as MouseEvent<HTMLImageElement>);
       send({ type: "scroll", x, y, deltaX: e.deltaX, deltaY: e.deltaY });
     },
@@ -490,11 +436,11 @@ export function BrowserPanel({ target, onScreenshotCapture }: BrowserPanelProps)
     <div className="flex flex-col h-full" tabIndex={0} onKeyDown={handleKeyDown}>
       {/* Tab Bar */}
       {tabs.length > 0 && (
-        <div className="flex items-end gap-0 px-1 pt-1 border-b-2 border-border bg-muted/30 shrink-0 overflow-x-auto">
+        <div className="flex items-end gap-0 px-1 pt-1 border-b border-border bg-muted/30 shrink-0 overflow-x-auto">
           {tabs.map((tab) => (
             <div
               key={tab.id}
-              className={`flex items-center gap-1 px-3 py-1.5 text-xs cursor-pointer border-2 border-border border-b-0 -mb-[2px] max-w-[180px] ${
+              className={`flex items-center gap-1 px-3 py-1.5 text-xs cursor-pointer border border-border border-b-0 -mb-[2px] max-w-[180px] ${
                 tab.id === activeTabId
                   ? "bg-background font-semibold"
                   : "bg-muted/50 hover:bg-muted text-muted-foreground"
@@ -526,7 +472,7 @@ export function BrowserPanel({ target, onScreenshotCapture }: BrowserPanelProps)
       )}
 
       {/* URL Bar */}
-      <div className="flex items-center gap-1 p-2 border-b-2 border-border bg-background shrink-0">
+      <div className="flex items-center gap-1 p-2 border-b border-border bg-background shrink-0">
         <Button
           variant="outline"
           size="sm"
@@ -591,41 +537,8 @@ export function BrowserPanel({ target, onScreenshotCapture }: BrowserPanelProps)
             </Button>
           </>
         )}
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={zoomOut}
-          disabled={!isZoomed}
-          title="Zoom out"
-        >
-          <ZoomOut className="w-3.5 h-3.5" />
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={isZoomed ? zoomReset : zoomIn}
-          title={isZoomed ? "Reset zoom" : "Zoom in"}
-        >
-          <span className="text-[10px] font-mono tabular-nums w-7 text-center">
-            {zoom}x
-          </span>
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={zoomIn}
-          disabled={zoom >= MAX_ZOOM}
-          title="Zoom in"
-        >
-          <ZoomIn className="w-3.5 h-3.5" />
-        </Button>
         {isZoomed && (
-          <Button
-            variant={panMode ? "default" : "outline"}
-            size="sm"
-            onClick={togglePanMode}
-            title={panMode ? "Drag mode" : "Interact mode"}
-          >
+          <Button variant={panMode ? "default" : "outline"} size="sm" onClick={togglePanMode} title={panMode ? "Drag mode" : "Interact mode"}>
             {panMode ? <Hand className="w-3.5 h-3.5" /> : <MousePointer2 className="w-3.5 h-3.5" />}
           </Button>
         )}
@@ -639,7 +552,7 @@ export function BrowserPanel({ target, onScreenshotCapture }: BrowserPanelProps)
             <BookMarked className="w-3.5 h-3.5" />
           </Button>
           {showBookmarks && (
-            <div className="absolute top-full left-0 mt-1 w-60 bg-background border-2 border-border shadow-lg z-50 py-1 text-xs">
+            <div className="absolute top-full left-0 mt-1 w-60 bg-background border border-border z-50 py-1 text-xs">
               {PRESET_BOOKMARKS.map((bm) => (
                 <button
                   key={bm.url}
@@ -721,12 +634,7 @@ export function BrowserPanel({ target, onScreenshotCapture }: BrowserPanelProps)
       </div>
 
       {/* Browser Canvas */}
-      <div
-        className="flex-1 relative bg-neutral-900 min-h-0"
-        ref={canvasRef}
-        style={{ overflow: zoom > 1 ? "auto" : "hidden" }}
-        onWheel={(e) => { if (e.ctrlKey || e.metaKey) e.preventDefault(); }}
-      >
+      <div className="flex-1 relative bg-neutral-900 min-h-0 overflow-hidden" ref={canvasRef}>
         {error && (
           <div className="absolute top-2 left-2 right-2 z-10 bg-red-100 border border-red-300 text-red-800 text-xs p-2 rounded">
             {error}
@@ -743,22 +651,28 @@ export function BrowserPanel({ target, onScreenshotCapture }: BrowserPanelProps)
           </div>
         )}
         {imageUrl ? (
-          <img
-            ref={imgRef}
-            src={imageUrl}
-            alt="shared browser"
-            className="w-full h-full object-contain select-none origin-center"
-            style={{
-              cursor: isSelecting ? "crosshair" : "default",
-              transform: zoom !== 1 ? `scale(${zoom})` : undefined,
-            }}
-            draggable={false}
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-            onWheel={handleWheel}
-            onContextMenu={handleContextMenu}
-          />
+          <TransformWrapper
+            ref={transformRef}
+            minScale={1}
+            maxScale={4}
+            {...({ wheel: { step: 0.08, disabled: !panMode }, panning: { disabled: !panMode }, pinch: { disabled: !panMode }, onTransformed: (_ref: unknown, state: { scale: number }) => setIsZoomed(state.scale > 1) } as Record<string, unknown>)}
+          >
+            <TransformComponent wrapperStyle={{ width: "100%", height: "100%" }} contentStyle={{ width: "100%", height: "100%" }}>
+              <img
+                ref={imgRef}
+                src={imageUrl}
+                alt="shared browser"
+                className="w-full h-full object-contain select-none"
+                style={{ cursor: isSelecting ? "crosshair" : (panMode ? "grab" : "default") }}
+                draggable={false}
+                onMouseDown={panMode ? undefined : handleMouseDown}
+                onMouseMove={panMode ? undefined : handleMouseMove}
+                onMouseUp={panMode ? undefined : handleMouseUp}
+                onWheel={panMode ? undefined : handleWheel}
+                onContextMenu={handleContextMenu}
+              />
+            </TransformComponent>
+          </TransformWrapper>
         ) : (
           <div className="flex items-center justify-center h-full text-neutral-500 text-sm">
             {connected ? "Waiting..." : "Connecting..."}
@@ -766,7 +680,7 @@ export function BrowserPanel({ target, onScreenshotCapture }: BrowserPanelProps)
         )}
         {selRect && selRect.width > 2 && selRect.height > 2 && (
           <div
-            className="absolute border-2 border-blue-500 bg-blue-500/20 pointer-events-none"
+            className="absolute border border-blue-500 bg-blue-500/20 pointer-events-none"
             style={{ left: selRect.left, top: selRect.top, width: selRect.width, height: selRect.height }}
           />
         )}

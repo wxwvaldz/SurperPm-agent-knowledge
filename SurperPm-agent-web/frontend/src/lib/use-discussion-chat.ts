@@ -6,6 +6,7 @@ import { standaloneDiscussionKeys } from "./queries/discussions-standalone";
 import { discussionListSchema, type Discussion } from "./schemas/discussion";
 import { parseWithFallback } from "./utils/parse-with-fallback";
 import { api } from "./api";
+import type { CardResponse } from "./schemas/interactive-card";
 
 export interface ChatMessage {
   id: number;
@@ -13,6 +14,7 @@ export interface ChatMessage {
   author: string | null;
   content: string;
   imageDataUri: string | null;
+  cardResponse: CardResponse | null;
   createdAt: string;
   streaming: boolean;
 }
@@ -137,6 +139,7 @@ export function useDiscussionChat({ topicId, goalId }: UseDiscussionChatArgs) {
         author: d.author ?? null,
         content: streamed ?? d.content,
         imageDataUri: d.image_data_uri ?? null,
+        cardResponse: (d.card_response as CardResponse | null) ?? null,
         createdAt: d.created_at,
         streaming: streamed != null,
       };
@@ -149,6 +152,7 @@ export function useDiscussionChat({ topicId, goalId }: UseDiscussionChatArgs) {
           author: null,
           content: text,
           imageDataUri: null,
+          cardResponse: null,
           createdAt: new Date().toISOString(),
           streaming: true,
         });
@@ -159,11 +163,26 @@ export function useDiscussionChat({ topicId, goalId }: UseDiscussionChatArgs) {
         new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime() ||
         a.id - b.id,
     );
-    return out;
+    // Back-link: if a user message has cardResponse, attach it to the preceding
+    // agent message — that's where the interactive card lives, so it needs the
+    // response to show as "submitted" and prevent re-selection on refresh.
+    for (let i = 1; i < out.length; i++) {
+      if (out[i].role === "user" && out[i].cardResponse) {
+        // Find the nearest preceding agent message
+        for (let j = i - 1; j >= 0; j--) {
+          if (out[j].role === "agent") {
+            out[j].cardResponse = out[i].cardResponse;
+            break;
+          }
+        }
+      }
+    }
+    // 过滤空 content 且不在 streaming 的 agent 消息（空壳气泡，视觉上会与 TypingIndicator 同时出现）
+    return out.filter((m) => !(m.role === "agent" && !m.content.trim() && !m.streaming));
   })();
 
   const send = useCallback(
-    async (text: string, imageDataUri?: string) => {
+    async (text: string, imageDataUri?: string, cardResponse?: CardResponse) => {
       if (!text.trim() && !imageDataUri) return;
       const body: Record<string, unknown> = {
         content: text,
@@ -171,6 +190,7 @@ export function useDiscussionChat({ topicId, goalId }: UseDiscussionChatArgs) {
         topic_id: topicId ?? undefined,
       };
       if (imageDataUri) body.image_data_uri = imageDataUri;
+      if (cardResponse) body.card_response = cardResponse;
       await api.post(isGoal ? `/goals/${goalId}/discussions` : "/discussions", body);
       invalidate();
     },

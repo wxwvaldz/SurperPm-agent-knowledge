@@ -210,7 +210,7 @@ async def push_ssh_key_to_github(
     """Add the SSH public key to the user's GitHub account via API."""
     import requests as http_requests
 
-    store_settings = await store.read_settings()
+    store_settings = store.get_settings()
     pub_key = store_settings.get("ssh_public_key", "")
     if not pub_key:
         raise HTTPException(status_code=400, detail="No SSH public key. Generate one first.")
@@ -286,6 +286,23 @@ async def reveal_secret(
         value=decrypt(secret["value_enc"]),
         category=secret.get("category", "env"),
     )
+
+
+@router.patch("/secrets/{secret_id}")
+async def update_secret(
+    secret_id: int,
+    body: SecretCreate,
+    store: KnowledgeStore = Depends(get_store),
+    _user: dict = Depends(require_auth),
+):
+    secret = store.get("secrets", secret_id)
+    if not secret:
+        raise HTTPException(status_code=404, detail="Secret not found")
+    patch: dict = {"key": body.key, "category": body.category}
+    if body.value and body.value != "***":
+        patch["value_enc"] = encrypt(body.value)
+    await store.update("secrets", secret_id, patch)
+    return SecretOut(id=secret_id, key=body.key, value="***", category=body.category)
 
 
 @router.delete("/secrets/{secret_id}", status_code=204)

@@ -31,7 +31,7 @@ def _plugin_root() -> Path:
     from app.services.knowledge_store import get_store
 
     store = get_store()
-    knowledge_plugins = store._root.parent / "plugins"
+    knowledge_plugins = store.knowledge_root / "plugins"
     if knowledge_plugins.is_dir():
         return knowledge_plugins
     if settings.plugin_repo_path:

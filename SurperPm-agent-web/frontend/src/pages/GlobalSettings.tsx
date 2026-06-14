@@ -8,21 +8,21 @@ import { workspaceListOptions } from "@/lib/queries/workspaces";
 import { SshKeyDisplay } from "@/components/settings/ssh-key-display";
 import { SecretsManager } from "@/components/settings/secrets-manager";
 import { AIModelConfig } from "@/components/settings/ai-model-config";
+import { ServerConfigPanel } from "@/components/settings/server-config";
 import { ReposManager } from "@/components/settings/repos-manager";
 import { LearningSourcesTab } from "@/components/settings/learning-sources";
 import { TeamContent } from "@/pages/workspace/Team";
 import { SkillsTab, MCPTab, PluginsTab } from "@/pages/workspace/Plugins";
 import { Text } from "@/components/retroui/Text";
-import { Card } from "@/components/retroui/Card";
 import { Input } from "@/components/retroui/Input";
 import { Label } from "@/components/retroui/Label";
 import { Button } from "@/components/retroui/Button";
 
-type Tab = "general" | "secrets" | "learning" | "mcp" | "skill" | "plugin" | "team";
+type Tab = "general" | "admin" | "learning" | "mcp" | "skill" | "plugin" | "team";
 
 const TABS: { id: Tab; label: string }[] = [
+  { id: "admin", label: "Admin" },
   { id: "general", label: "General" },
-  { id: "secrets", label: "Secrets" },
   { id: "learning", label: "Learning" },
   { id: "mcp", label: "MCP" },
   { id: "skill", label: "Skill" },
@@ -31,7 +31,7 @@ const TABS: { id: Tab; label: string }[] = [
 ];
 
 export default function GlobalSettingsPage() {
-  const [activeTab, setActiveTab] = useState<Tab>("general");
+  const [activeTab, setActiveTab] = useState<Tab>("admin");
   const { data: workspaces = [] } = useQuery(workspaceListOptions());
   const defaultWsId = workspaces[0]?.id ?? "";
 
@@ -61,15 +61,20 @@ export default function GlobalSettingsPage() {
 
       <div className="flex-1 min-h-0 overflow-auto">
         {activeTab === "general" && (
-          <div className="space-y-6">
-            <SshKeyDisplay />
+          <div className="space-y-3 max-w-2xl">
             <GeneralTab />
             <ReposManager />
+          </div>
+        )}
+        {activeTab === "admin" && (
+          <div className="space-y-3 max-w-2xl">
+            <ServerConfigPanel />
             <AIModelConfig />
+            <SecretsManager />
+            <SshKeyDisplay />
             <ResetSection />
           </div>
         )}
-        {activeTab === "secrets" && <SecretsManager />}
         {activeTab === "learning" && <LearningSourcesTab />}
         {activeTab === "mcp" && <MCPTab workspaceId={defaultWsId} />}
         {activeTab === "skill" && <SkillsTab workspaceId={defaultWsId} />}
@@ -108,51 +113,46 @@ function GeneralTab() {
   };
 
   return (
-    <div className="max-w-lg">
-      <Card>
-        <Card.Header>
-          <Card.Title>Knowledge Repository</Card.Title>
-        </Card.Header>
-        <Card.Content>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="knowledge-repo" className="mb-1.5 block text-xs">
-                Knowledge Repository URL
-              </Label>
-              <Input
-                id="knowledge-repo"
-                value={knowledgeRepo}
-                onChange={(e) => setKnowledgeRepo(e.target.value)}
-                placeholder="https://github.com/org/knowledge"
-                disabled={isLocked}
-                className="font-mono text-sm"
-              />
-              {isLocked && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  Knowledge repo URL is locked after initial setup.
-                </p>
-              )}
-            </div>
-
-            {updateMutation.isError && (
-              <p className="text-xs text-destructive">
-                Save failed: {(updateMutation.error as Error).message}
+    <div className="max-w-lg space-y-2">
+      <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Knowledge Repository</p>
+      <div className="border border-border p-3 space-y-2">
+        <div className="space-y-4">
+          <div>
+            <Label htmlFor="knowledge-repo" className="mb-1.5 block text-xs">
+              Knowledge Repository URL
+            </Label>
+            <Input
+              id="knowledge-repo"
+              value={knowledgeRepo}
+              onChange={(e) => setKnowledgeRepo(e.target.value)}
+              placeholder="https://github.com/org/knowledge"
+              disabled={isLocked}
+              className="font-mono text-sm"
+            />
+            {isLocked && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Knowledge repo URL is locked after initial setup.
               </p>
             )}
-            {updateMutation.isSuccess && (
-              <p className="text-xs text-green-600">Saved</p>
-            )}
-
-            <Button
-              onClick={handleSave}
-              disabled={isLocked || !knowledgeRepo.trim() || updateMutation.isPending}
-            >
-              {updateMutation.isPending ? "Saving..." : "Save"}
-            </Button>
           </div>
-        </Card.Content>
-      </Card>
 
+          {updateMutation.isError && (
+            <p className="text-xs text-destructive">
+              Save failed: {(updateMutation.error as Error).message}
+            </p>
+          )}
+          {updateMutation.isSuccess && (
+            <p className="text-xs text-green-600">Saved</p>
+          )}
+
+          <Button
+            onClick={handleSave}
+            disabled={isLocked || !knowledgeRepo.trim() || updateMutation.isPending}
+          >
+            {updateMutation.isPending ? "Saving..." : "Save"}
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -169,9 +169,9 @@ function ResetSection() {
   });
   if (!user?.is_founder) return null;
   return (
-    <Card>
-      <Card.Header><Card.Title>Reinitialize</Card.Title></Card.Header>
-      <Card.Content>
+    <div className="space-y-2">
+      <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Reinitialize</p>
+      <div className="border border-border p-3 space-y-2">
         <p className="text-sm text-muted-foreground mb-3">
           Clear all config and delete local knowledge clone. Next login will reinitialize. Irreversible.
         </p>
@@ -185,7 +185,7 @@ function ResetSection() {
         ) : (
           <Button variant="outline" onClick={() => setConfirming(true)}>Reinitialize</Button>
         )}
-      </Card.Content>
-    </Card>
+      </div>
+    </div>
   );
 }

@@ -29,6 +29,10 @@ interface TreeNode {
   children?: TreeNode[];
 }
 
+function stripFrontmatter(md: string): string {
+  return md.replace(/^---\n[\s\S]*?\n---\n?/, "").trim();
+}
+
 function isDir(node: TreeNode): boolean {
   return Array.isArray(node.children);
 }
@@ -44,7 +48,7 @@ function matchesSearch(node: TreeNode, term: string): boolean {
 }
 
 export default function KnowledgePage() {
-  const [selectedPath, setSelectedPath] = useState<string | null>(null);
+  const [selectedPath, setSelectedPath] = useState<string | null>("README.md");
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState<"knowledge" | "learning">("knowledge");
 
@@ -54,7 +58,7 @@ export default function KnowledgePage() {
         <Text as="h2" className="text-sm font-bold">Learning</Text>
         <div className="flex-1" />
         <SyncButton />
-        <div className="flex border-2 border-border">
+        <div className="flex border border-border">
           <button
             onClick={() => setActiveTab("knowledge")}
             className={`px-3 py-1 text-xs font-medium transition-colors ${
@@ -86,7 +90,7 @@ export default function KnowledgePage() {
         </div>
       ) : (
       <div className="flex flex-1 min-h-0">
-        <aside className="w-72 border-r-2 border-border overflow-y-auto p-4 bg-card nb-scrollbar">
+        <aside className="w-72 border-r border-border overflow-y-auto p-4 bg-card nb-scrollbar">
           <p className="text-xs font-head font-bold uppercase tracking-wider text-muted-foreground mb-3">
             Files
           </p>
@@ -157,7 +161,7 @@ function KnowledgeTree({
   if (isLoading) {
     return (
       <div className="flex flex-col items-center gap-2 py-10 text-xs text-muted-foreground">
-        <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-foreground border-t-transparent" />
+        <span className="inline-block h-4 w-4 animate-spin rounded-full border border-foreground border-t-transparent" />
         Loading file tree...
       </div>
     );
@@ -165,7 +169,7 @@ function KnowledgeTree({
 
   if (error) {
     return (
-      <div className="border-2 border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">
+      <div className="border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">
         Load failed: {(error as Error).message}
       </div>
     );
@@ -261,7 +265,7 @@ function TreeItem({
   searchTerm: string;
 }) {
   const forceOpen = !!searchTerm && matchesSearch(node, searchTerm);
-  const [expanded, setExpanded] = useState(depth < 1);
+  const [expanded, setExpanded] = useState(false);
   const isOpen = forceOpen || expanded;
   const isSelected = selectedPath === node.path;
   const nodeIsDir = isDir(node);
@@ -285,7 +289,7 @@ function TreeItem({
         onClick={handleClick}
         className={`w-full text-left text-sm px-2.5 py-1.5 flex items-center gap-1.5 transition-all duration-100 border-l-[3px] ${
           isSelected
-            ? "bg-primary/20 border-l-foreground font-semibold shadow-[2px_2px_0_0_rgba(0,0,0,0.06)]"
+            ? "bg-primary/20 border-l-foreground font-semibold"
             : "hover:bg-muted/60 hover:border-l-primary/40 border-l-transparent"
         }`}
         style={{ paddingLeft: `${depth * 16 + 8}px` }}
@@ -339,7 +343,7 @@ function FileContent({ path }: { path: string }) {
   if (isLoading) {
     return (
       <div className="flex flex-col items-center gap-2 pt-20 text-sm text-muted-foreground">
-        <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-foreground border-t-transparent" />
+        <span className="inline-block h-4 w-4 animate-spin rounded-full border border-foreground border-t-transparent" />
         Loading file...
       </div>
     );
@@ -347,7 +351,7 @@ function FileContent({ path }: { path: string }) {
 
   if (error) {
     return (
-      <div className="border-2 border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+      <div className="border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
         Load failed: {(error as Error).message}
       </div>
     );
@@ -364,7 +368,7 @@ function FileContent({ path }: { path: string }) {
   return (
     <div className="max-w-4xl space-y-3 flex flex-col h-full min-h-0">
       {/* breadcrumb & actions */}
-      <div className="flex items-center gap-2 pb-3 border-b-2 border-border">
+      <div className="flex items-center gap-2 pb-3 border-b border-border">
         <FileText size={16} className="text-muted-foreground shrink-0" />
         <span className="font-mono text-xs text-muted-foreground flex-1 truncate">{path}</span>
         <div className="flex items-center gap-2">
@@ -400,7 +404,7 @@ function FileContent({ path }: { path: string }) {
       </div>
 
       {saveMutation.isError && (
-        <div className="border-2 border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">
+        <div className="border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">
           Save failed: {(saveMutation.error as Error).message}
         </div>
       )}
@@ -415,11 +419,11 @@ function FileContent({ path }: { path: string }) {
           rows={20}
         />
       ) : isMarkdown ? (
-        <div className="border-2 border-border bg-white p-6 overflow-auto flex-1 min-h-0 shadow-[4px_4px_0_0_rgba(0,0,0,0.08)]">
-          <MarkdownContent content={content} />
+        <div className="border border-border bg-card p-4 overflow-auto flex-1 min-h-0">
+          <MarkdownContent content={stripFrontmatter(content)} />
         </div>
       ) : (
-        <pre className="aui-md-pre overflow-auto flex-1 min-h-0 shadow-[4px_4px_0_0_rgba(0,0,0,0.08)]">
+        <pre className="border border-border bg-card p-4 overflow-auto flex-1 min-h-0 font-mono text-xs">
           <code>{content}</code>
         </pre>
       )}

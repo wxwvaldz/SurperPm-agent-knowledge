@@ -5,7 +5,6 @@ import { Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/retroui/Button";
 import { Input } from "@/components/retroui/Input";
 import { Label } from "@/components/retroui/Label";
-import { Card } from "@/components/retroui/Card";
 import { Alert } from "@/components/retroui/Alert";
 
 interface AIConfig {
@@ -65,103 +64,99 @@ export function AIModelConfig() {
   }
 
   return (
-    <div className="max-w-lg">
-      <Card>
-        <Card.Header>
-          <Card.Title>AI Model Configuration</Card.Title>
-        </Card.Header>
-        <Card.Content>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="ai-base-url" className="mb-1.5 block text-xs">
-                Base URL
-              </Label>
-              <Input
-                id="ai-base-url"
-                value={baseUrl}
-                onChange={(e) => {
-                  setBaseUrl(e.target.value);
-                  setDirty(true);
-                }}
-                placeholder="https://api.anthropic.com"
-                className="font-mono text-sm"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                Leave empty for default Anthropic endpoint.
-              </p>
-            </div>
-
-            <div>
-              <Label htmlFor="ai-api-key" className="mb-1.5 block text-xs">
-                API Key
-              </Label>
-              <div className="flex gap-2">
-                <Input
-                  id="ai-api-key"
-                  type={showKey ? "text" : "password"}
-                  value={apiKey}
-                  onChange={(e) => {
-                    setApiKey(e.target.value);
-                    setDirty(true);
-                  }}
-                  placeholder={
-                    data?.api_key_set
-                      ? data.api_key_masked
-                      : "sk-..."
-                  }
-                  className="font-mono text-sm flex-1"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowKey(!showKey)}
-                  className="p-2 border-2 border-border bg-background hover:bg-muted transition-all"
-                >
-                  {showKey ? <EyeOff size={14} /> : <Eye size={14} />}
-                </button>
-              </div>
-              {data?.api_key_set && !apiKey && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  Key is set. Enter a new value to replace it.
-                </p>
-              )}
-            </div>
-
-            <div>
-              <Label htmlFor="ai-model" className="mb-1.5 block text-xs">
-                Model Name
-              </Label>
-              <Input
-                id="ai-model"
-                value={model}
-                onChange={(e) => {
-                  setModel(e.target.value);
-                  setDirty(true);
-                }}
-                placeholder="claude-sonnet-4-20260614"
-                className="font-mono text-sm"
-              />
-            </div>
-
-            {saveMutation.isError && (
-              <Alert status="warning">
-                <Alert.Description>
-                  {(saveMutation.error as Error).message}
-                </Alert.Description>
-              </Alert>
-            )}
-            {saveMutation.isSuccess && !dirty && (
-              <p className="text-xs text-green-600">Saved</p>
-            )}
-
-            <Button
-              onClick={handleSave}
-              disabled={!dirty || saveMutation.isPending}
-            >
-              {saveMutation.isPending ? "Saving..." : "Save Changes"}
-            </Button>
+    <div className="max-w-lg space-y-2">
+      <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">AI Model Configuration</p>
+      <div className="border border-border p-3 space-y-2">
+        <div className="space-y-4">
+          <div>
+            <Label htmlFor="ai-base-url" className="mb-1.5 block text-xs">
+              Base URL
+            </Label>
+            <Input
+              id="ai-base-url"
+              value={baseUrl}
+              onChange={(e) => {
+                setBaseUrl(e.target.value);
+                setDirty(true);
+              }}
+              placeholder="https://api.anthropic.com"
+              className="font-mono text-sm"
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Leave empty for default Anthropic endpoint.
+            </p>
           </div>
-        </Card.Content>
-      </Card>
+
+          <div>
+            <Label htmlFor="ai-api-key" className="mb-1.5 block text-xs">
+              API Key
+            </Label>
+            <div className="flex gap-2">
+              <Input
+                id="ai-api-key"
+                type={showKey ? "text" : "password"}
+                value={apiKey}
+                onChange={(e) => {
+                  setApiKey(e.target.value);
+                  setDirty(true);
+                }}
+                placeholder={
+                  data?.api_key_set
+                    ? data.api_key_masked
+                    : "sk-..."
+                }
+                className="font-mono text-sm flex-1"
+              />
+              <button
+                type="button"
+                onClick={() => setShowKey(!showKey)}
+                className="p-2 border border-border bg-background hover:bg-muted transition-all"
+              >
+                {showKey ? <EyeOff size={14} /> : <Eye size={14} />}
+              </button>
+            </div>
+            {data?.api_key_set && !apiKey && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Key is set. Enter a new value to replace it.
+              </p>
+            )}
+          </div>
+
+          <div>
+            <Label htmlFor="ai-model" className="mb-1.5 block text-xs">
+              Model Name
+            </Label>
+            <Input
+              id="ai-model"
+              value={model}
+              onChange={(e) => {
+                setModel(e.target.value);
+                setDirty(true);
+              }}
+              placeholder="claude-sonnet-4-20260614"
+              className="font-mono text-sm"
+            />
+          </div>
+
+          {saveMutation.isError && (
+            <Alert status="warning">
+              <Alert.Description>
+                {(saveMutation.error as Error).message}
+              </Alert.Description>
+            </Alert>
+          )}
+          {saveMutation.isSuccess && !dirty && (
+            <p className="text-xs text-green-600">Saved</p>
+          )}
+
+          <Button
+            onClick={handleSave}
+            disabled={!dirty || saveMutation.isPending}
+          >
+            {saveMutation.isPending ? "Saving..." : "Save Changes"}
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }

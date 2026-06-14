@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 type Collapsed = "left" | "right" | null;
@@ -22,6 +22,12 @@ export function ResizableSplit({
 }: ResizableSplitProps) {
   const [leftPercent, setLeftPercent] = useState(defaultLeftPercent);
   const [collapsed, setCollapsed] = useState<Collapsed>(initialCollapsed);
+
+  useEffect(() => {
+    const handler = () => { if (collapsed === "left") setCollapsed(null); };
+    window.addEventListener("SuperPmAgent:navigate-browser", handler);
+    return () => window.removeEventListener("SuperPmAgent:navigate-browser", handler);
+  }, [collapsed]);
   const containerRef = useRef<HTMLDivElement>(null);
   const dragging = useRef(false);
 

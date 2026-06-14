@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Hash, ChevronDown, Plus, Pencil, Trash2, Check, X } from "lucide-react";
 import { api } from "@/lib/api";
 import { workspaceListOptions } from "@/lib/queries/workspaces";
 import { standaloneTopicListOptions } from "@/lib/queries/topics-standalone";
+import { useUIStore } from "@/lib/stores/ui";
 import { WSProvider } from "@/providers/ws-provider";
 import { BrowserPanel } from "@/components/browser/browser-panel";
 import { ResizableSplit } from "@/components/browser/resizable-split";
@@ -18,37 +20,76 @@ function ChatWithTopics({
   screenshotRef: React.MutableRefObject<((dataUri: string) => void) | null>;
 }) {
   const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { data: topics = [] } = useQuery(standaloneTopicListOptions());
-  const [selectedTopicId, setSelectedTopicId] = useState<number | null>(null);
+  const discussTopicId = useUIStore((s) => s.discussTopicId);
+  const setDiscussTopicId = useUIStore((s) => s.setDiscussTopicId);
   const [showDropdown, setShowDropdown] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editName, setEditName] = useState("");
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  // ── selectedTopicId — tri-source: URL param (explicit link) > Zustand (across navigation) > default ──
+  function resolveTopicId(
+    urlTopicParam: string | null,
+    storedId: number | null,
+  ): number | null {
+    // 1. URL param — e.g. from a goal-card link or cross-page navigation
+    if (urlTopicParam) {
+      const id = Number(urlTopicParam);
+      if (topics.some((t) => t.id === id)) return id;
+    }
+    // 2. Zustand — remembered from last selection in this session
+    if (storedId != null && topics.some((t) => t.id === storedId)) return storedId;
+    // 3. Default — "general" or first available
+    const general = topics.find((t) => t.name === "general");
+    return general?.id ?? topics[0]?.id ?? null;
+  }
+
+  const topicParam = searchParams.get("topic");
+  const selectedTopicId = resolveTopicId(topicParam, discussTopicId);
+
+  // Keep URL in sync with selectedTopicId (side-effect, not in render)
+  useEffect(() => {
+    if (selectedTopicId == null || topics.length === 0) return;
+    const topic = topics.find((t) => t.id === selectedTopicId);
+    const currentParam = searchParams.get("topic");
+    if (topic && topic.name !== "general" && currentParam !== String(selectedTopicId)) {
+      setSearchParams({ topic: String(selectedTopicId) }, { replace: true });
+    }
+  }, [selectedTopicId, topics, searchParams, setSearchParams]);
+
+  function handleSelectTopic(id: number) {
+    setDiscussTopicId(id);
+    const topic = topics.find((t) => t.id === id);
+    // Keep "general" out of the URL — it's the implicit default.
+    if (topic && topic.name === "general") {
+      setSearchParams({}, { replace: true });
+    } else {
+      setSearchParams({ topic: String(id) }, { replace: true });
+    }
+    setShowDropdown(false);
+  }
+
   const renameMut = useMutation({
     mutationFn: (args: { id: number; name: string }) =>
       api.patch(`/topics/${args.id}`, { name: args.name }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["topics"] });
+      queryClient.invalidateQueries({ queryKey: ["topics-standalone"] });
       setEditingId(null);
     },
   });
 
   const deleteMut = useMutation({
     mutationFn: (id: number) => api.delete(`/topics/${id}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["topics"] });
-      if (selectedTopicId === editingId) setSelectedTopicId(null);
+    onSuccess: (_data, deletedId) => {
+      queryClient.invalidateQueries({ queryKey: ["topics-standalone"] });
+      if (selectedTopicId === deletedId) {
+        setSearchParams({}, { replace: true });
+      }
     },
   });
-
-  useEffect(() => {
-    if (selectedTopicId === null && topics.length > 0) {
-      const general = topics.find((t) => t.name === "general");
-      setSelectedTopicId(general?.id ?? topics[0].id);
-    }
-  }, [topics, selectedTopicId]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -65,24 +106,27 @@ function ChatWithTopics({
   return (
     <div className="flex flex-col h-full">
       {/* Topic selector toolbar */}
-      <div className="px-4 py-2 border-b-2 border-border flex items-center gap-2 shrink-0 bg-card">
+      <div className="px-4 py-2 border-b border-border flex items-center gap-2 shrink-0 bg-card">
         <div className="relative" ref={dropdownRef}>
           <button
             onClick={() => setShowDropdown(!showDropdown)}
             className="flex items-center gap-1.5 px-2 py-1 rounded hover:bg-muted/50 transition-colors"
           >
             <Hash size={14} className="text-muted-foreground" />
-            <span className="text-sm font-medium truncate max-w-[140px]">
+            <span
+              className="text-sm font-medium"
+              title={selectedTopic?.name ?? undefined}
+            >
               {selectedTopic?.name ?? "Select topic"}
             </span>
             <ChevronDown size={12} className="text-muted-foreground" />
           </button>
           {showDropdown && (
-            <div className="absolute top-full left-0 mt-1 w-52 bg-background border-2 border-border shadow-[3px_3px_0_0_#000] z-50 py-1">
+            <div className="absolute top-full left-0 mt-1 w-64 bg-background border border-border z-50 py-1" style={{ maxHeight: 360, overflowY: 'auto', overflowX: 'hidden' }}>
               {topics.map((topic: Topic) => (
                 <div
                   key={topic.id}
-                  className={`flex items-center gap-1 px-3 py-1.5 text-sm hover:bg-muted/50 ${
+                  className={`flex items-center gap-1 px-3 py-2 text-sm hover:bg-muted/50 ${
                     topic.id === selectedTopicId ? "bg-primary/10 font-medium" : ""
                   }`}
                 >
@@ -95,40 +139,41 @@ function ChatWithTopics({
                           if (e.key === "Enter") renameMut.mutate({ id: topic.id, name: editName });
                           if (e.key === "Escape") setEditingId(null);
                         }}
-                        className="flex-1 text-sm border border-border px-1 bg-background"
+                        className="flex-1 text-sm border border-border px-1 bg-background min-w-0"
                         autoFocus
                       />
-                      <button onClick={() => renameMut.mutate({ id: topic.id, name: editName })} className="p-0.5 hover:text-foreground text-muted-foreground">
-                        <Check size={12} />
+                      <button onClick={() => renameMut.mutate({ id: topic.id, name: editName })} className="p-1 hover:text-foreground text-muted-foreground shrink-0">
+                        <Check size={14} />
                       </button>
-                      <button onClick={() => setEditingId(null)} className="p-0.5 hover:text-foreground text-muted-foreground">
-                        <X size={12} />
+                      <button onClick={() => setEditingId(null)} className="p-1 hover:text-foreground text-muted-foreground shrink-0">
+                        <X size={14} />
                       </button>
                     </>
                   ) : (
                     <>
                       <button
-                        onClick={() => { setSelectedTopicId(topic.id); setShowDropdown(false); }}
-                        className="flex items-center gap-2 flex-1 text-left"
+                        onClick={() => handleSelectTopic(topic.id)}
+                        className="flex items-center gap-2 flex-1 min-w-0 text-left cursor-pointer"
+                        title={topic.name}
                       >
                         <Hash size={12} className="text-muted-foreground shrink-0" />
                         <span className="truncate">{topic.name}</span>
                       </button>
                       {topic.name !== "general" && (
-                        <div className="flex shrink-0">
+                        <div className="flex shrink-0 ml-1">
                           <button
                             onClick={(e) => { e.stopPropagation(); setEditingId(topic.id); setEditName(topic.name); }}
-                            className="p-0.5 hover:text-foreground text-muted-foreground"
+                            className="p-1 hover:text-foreground text-muted-foreground"
                             title="Rename"
                           >
-                            <Pencil size={11} />
+                            <Pencil size={14} />
                           </button>
                           <button
                             onClick={(e) => { e.stopPropagation(); deleteMut.mutate(topic.id); }}
-                            className="p-0.5 hover:text-destructive text-muted-foreground"
+                            className="p-1 hover:text-destructive text-muted-foreground"
                             title="Delete"
                           >
-                            <Trash2 size={11} />
+                            <Trash2 size={14} />
                           </button>
                         </div>
                       )}
@@ -158,10 +203,32 @@ function ChatWithTopics({
       </div>
 
       <div className="flex-1 min-h-0">
-        <GroupChat topicId={selectedTopicId} screenshotRef={screenshotRef} />
+        {topics.length === 0 && selectedTopicId === null ? (
+          <div className="flex flex-col items-center justify-center h-full gap-4">
+            <div className="text-center space-y-1">
+              <p className="text-sm font-bold">Discuss &rarr; Goal &rarr; Learning</p>
+              <p className="text-xs text-muted-foreground">Ideas become goals. Goals produce knowledge. Knowledge fuels better ideas.</p>
+            </div>
+            <button
+              className="px-4 py-2 text-sm font-medium bg-primary text-foreground border border-border rounded-sm hover:bg-primary/90 transition-colors"
+              onClick={async () => {
+                try {
+                  const t = await api.post<{ id: number }>("/topics", { name: "general" });
+                  handleSelectTopic(t.id);
+                  queryClient.invalidateQueries({ queryKey: ["topics-standalone"] });
+                  await api.post("/discussions", { role: "user", content: "你好", topic_id: t.id });
+                } catch { /* ignore */ }
+              }}
+            >
+              Start Discussing
+            </button>
+          </div>
+        ) : (
+          <GroupChat topicId={selectedTopicId} screenshotRef={screenshotRef} />
+        )}
       </div>
 
-      <CreateTopicDialog open={showCreate} onOpenChange={setShowCreate} />
+      <CreateTopicDialog open={showCreate} onOpenChange={setShowCreate} onCreated={(id) => handleSelectTopic(id)} />
     </div>
   );
 }

@@ -11,27 +11,27 @@ const subNav = [
   { to: "settings", icon: Settings, label: "Settings" },
 ];
 
-const statusLabel: Record<string, string> = {
-  todo: "To Do",
-  doing: "In Progress",
-  review: "Review",
-  done: "Done",
-  failed: "Failed",
+const statusLabel: Record<string, { label: string; variant: string }> = {
+  scheduled: { label: "Scheduled", variant: "timeout" },
+  todo:     { label: "To Do",      variant: "todo" },
+  doing:    { label: "In Progress",variant: "running" },
+  review:   { label: "Review",     variant: "review" },
+  done:     { label: "Done",       variant: "success" },
+  failed:   { label: "Failed",     variant: "failed" },
 };
 
 export function GoalLayout() {
-  const { goalId: goalIdStr } = useParams<{ goalId: string }>();
-  const goalId = Number(goalIdStr);
-  const valid = !!goalIdStr && !isNaN(goalId);
+  const { goalId } = useParams<{ goalId: string }>();
+  const valid = !!goalId;
 
-  const { data: goal } = useQuery({ ...goalDetailOptions(goalId), enabled: valid });
+  const { data: goal } = useQuery({ ...goalDetailOptions(goalId!), enabled: valid });
 
   if (!valid) return <Navigate to="/" replace />;
 
   return (
     <GoalWSProvider goalId={goalId}>
       <div className="flex flex-col h-full">
-        <div className="shrink-0 border-b-2 border-border bg-card px-4 py-3">
+        <div className="shrink-0 border-b border-border bg-card px-4 py-3">
           <div className="flex items-center gap-2 mb-2">
             <NavLink
               to="/goals"
@@ -42,11 +42,14 @@ export function GoalLayout() {
             <Text as="h2" className="text-sm font-bold truncate flex-1">
               {goal?.title ?? `Goal #${goalId}`}
             </Text>
-            {goal && (
-              <Badge size="sm">
-                {statusLabel[goal.status] ?? goal.status}
-              </Badge>
-            )}
+            {goal && (() => {
+              const st = statusLabel[goal.status];
+              return (
+                <Badge size="sm" variant={(st?.variant ?? "default") as any}>
+                  {st?.label ?? goal.status}
+                </Badge>
+              );
+            })()}
           </div>
           <nav className="flex gap-1">
             {subNav.map(({ to, icon: Icon, label }) => (

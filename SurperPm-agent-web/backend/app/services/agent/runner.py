@@ -73,7 +73,7 @@ def iter_message_texts(message: object):
             yield t
 
 
-def _truncate(text: str, limit: int = 600) -> str:
+def _truncate(text: str, limit: int = 3000) -> str:
     text = text.strip()
     return text if len(text) <= limit else text[:limit] + " …"
 
@@ -104,7 +104,7 @@ def _block_log(block: object) -> dict | None:
                     break
             if not detail:
                 detail = ", ".join(str(k) for k in inp.keys())
-        return {"kind": "tool_use", "tool": name, "text": _truncate(detail, 300)}
+        return {"kind": "tool_use", "tool": name, "text": _truncate(detail, 600)}
 
     if (
         getattr(block, "tool_use_id", None) is not None
@@ -246,12 +246,13 @@ async def run_goal_agent(
 
     async for message in query(prompt=goal_text, options=opts):
         # --- lifecycle check ---
-        if cancel_ev.is_set():
+        if cancel_ev.is_set() or pause_ev.is_set():
+            # Cancel or pause: break out of the async for loop.  This
+            # closes the generator → transport.close() → terminates the
+            # Claude Code subprocess, so token consumption stops
+            # immediately.  On resume, run_goal_agent is re-invoked with
+            # continue_conversation=True to pick up where it left off.
             break
-        while pause_ev.is_set():
-            if cancel_ev.is_set():
-                break
-            await asyncio.sleep(0.5)
 
         # Forward raw SDK message to caller (streaming / logging)
         if on_event:

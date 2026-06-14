@@ -34,7 +34,7 @@ function ToastItem({ t, onDismiss }: { t: Toast; onDismiss: (id: number) => void
   return (
     <div
       className={cn(
-        "flex items-center gap-2 border-2 px-4 py-3 shadow-[3px_3px_0_0_#000] text-sm animate-in slide-in-from-right-full duration-300",
+        "flex items-center gap-2 border px-4 py-3 text-sm animate-in slide-in-from-right-full duration-300",
         COLORS[t.type],
       )}
     >

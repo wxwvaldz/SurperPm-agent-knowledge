@@ -12,9 +12,7 @@ from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from app.config import settings
 from app.services.crypto import decrypt, encrypt
 
-_SECRET = settings.SuperPmAgent_secret or "SuperPmAgent-dev-secret-change-in-prod"
-if not settings.SuperPmAgent_secret:
-    logging.warning("SuperPmAgent_SECRET not set — using dev secret. Set it in .env for production.")
+_SECRET = settings.SuperPmAgent_secret
 
 _serializer = URLSafeTimedSerializer(_SECRET, salt="SuperPmAgent.session")
 

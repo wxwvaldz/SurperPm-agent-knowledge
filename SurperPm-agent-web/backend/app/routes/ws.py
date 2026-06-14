@@ -15,7 +15,7 @@ async def websocket_endpoint(websocket: WebSocket, workspace_id: str):
 
 
 @router.websocket("/ws/goal/{goal_id}")
-async def websocket_goal_endpoint(websocket: WebSocket, goal_id: int):
+async def websocket_goal_endpoint(websocket: WebSocket, goal_id: str):
     key = f"goal:{goal_id}"
     await hub.connect(key, websocket)
     try:

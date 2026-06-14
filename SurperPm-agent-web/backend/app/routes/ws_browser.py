@@ -4,29 +4,20 @@ import asyncio
 import base64
 import json
 import logging
-from http.cookies import SimpleCookie
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from app.services import session as session_svc
 from app.services.browser_manager import browser_manager
+from app.services.helpers import extract_session_cookie as _extract_session_cookie
 
 log = logging.getLogger(__name__)
 
 router = APIRouter()
 
 
-def _extract_session_cookie(ws: WebSocket) -> str | None:
-    raw = ws.headers.get("cookie", "")
-    if not raw:
-        return None
-    cookie = SimpleCookie(raw)
-    morsel = cookie.get("SuperPmAgent_session")
-    return morsel.value if morsel else None
-
-
 @router.websocket("/ws/browser/goal/{goal_id}")
-async def ws_browser_goal(websocket: WebSocket, goal_id: int):
+async def ws_browser_goal(websocket: WebSocket, goal_id: str):
     await _ws_browser_handler(websocket, f"goal_{goal_id}")
 
 
@@ -90,28 +81,34 @@ async def _ws_browser_handler(websocket: WebSocket, workspace_id: str):
         # Cancel any pending cleanup from a previous disconnection
         browser_manager.cancel_cleanup(workspace_id, user_id)
 
-        # Check if tabs already exist (reconnection scenario)
-        existing_tabs = browser_manager.has_active_tabs(workspace_id, user_id)
+        # Lock to prevent race: React StrictMode double-mount can fire two WS
+        # connections in quick succession, and the second one may check
+        # has_active_tabs before the first one's create_tab finishes adding
+        # the page to _pages, resulting in duplicate tabs.
+        init_lock = browser_manager.get_init_lock(workspace_id, user_id)
+        async with init_lock:
+            # Check if tabs already exist (reconnection scenario)
+            existing_tabs = browser_manager.has_active_tabs(workspace_id, user_id)
 
-        browser_manager.set_callbacks(
-            workspace_id, user_id,
-            on_frame=send_frame,
-            on_navigated=send_navigated,
-            on_tabs_changed=send_tabs,
-            on_download=send_download,
-        )
+            browser_manager.set_callbacks(
+                workspace_id, user_id,
+                on_frame=send_frame,
+                on_navigated=send_navigated,
+                on_tabs_changed=send_tabs,
+                on_download=send_download,
+            )
 
-        if not existing_tabs:
-            # First connection — create initial tab
-            await browser_manager.create_tab(workspace_id, user_id)
-        else:
-            # Reconnection — restart screencast so frames flow to the new WebSocket
-            try:
-                await browser_manager.restart_active_screencast(workspace_id, user_id)
-            except Exception:
-                log.exception("ws_browser: failed to restart screencast on reconnection")
-        # Send current tab state (works for both new and existing tabs)
-        await send_tabs()
+            if not existing_tabs:
+                # First connection — create initial tab
+                await browser_manager.create_tab(workspace_id, user_id)
+            else:
+                # Reconnection — restart screencast so frames flow to the new WebSocket
+                try:
+                    await browser_manager.restart_active_screencast(workspace_id, user_id)
+                except Exception:
+                    log.exception("ws_browser: failed to restart screencast on reconnection")
+            # Send current tab state (works for both new and existing tabs)
+            await send_tabs()
 
         while True:
             raw = await websocket.receive_text()

@@ -249,6 +249,8 @@ def apply_decay(config: dict | None = None) -> list[str]:
 
 async def _ai_distill(raw_items: list[dict], config: dict | None = None) -> list[dict]:
     """Use AI to distill raw items into structured learnings."""
+    import anthropic
+
     from app.services.ai_key_resolver import resolve_ai_base_url, resolve_ai_key, resolve_ai_model
 
     api_key = await resolve_ai_key()
@@ -256,9 +258,7 @@ async def _ai_distill(raw_items: list[dict], config: dict | None = None) -> list
         return _fallback_distill(raw_items)
 
     try:
-        import httpx
-
-        base_url = await resolve_ai_base_url() or "https://api.openai.com/v1"
+        base_url = await resolve_ai_base_url()
         model = await resolve_ai_model()
 
         items_text = "\n".join(
@@ -268,35 +268,30 @@ async def _ai_distill(raw_items: list[dict], config: dict | None = None) -> list
         )
 
         prompt = (
-            "You are a knowledge distiller. "
             "From the following raw items, extract key learnings.\n"
             "For each learning, output JSON with: title, "
             "content (1-3 sentences), category "
             "(one of: decision, pattern, mistake, insight, external), "
             "importance (0.0-1.0), tags (list).\n"
-            "Output a JSON array. Only include genuinely useful "
-            "knowledge.\n\n"
+            "Output a JSON array only. No explanation.\n\n"
             f"Raw items:\n{items_text}"
         )
 
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            resp = await client.post(
-                f"{base_url}/chat/completions",
-                headers={"Authorization": f"Bearer {api_key}"},
-                json={
-                    "model": model,
-                    "messages": [{"role": "user", "content": prompt}],
-                    "temperature": 0.3,
-                },
-            )
-            if resp.status_code != 200:
-                _logger.warning("AI distill failed: %d", resp.status_code)
-                return _fallback_distill(raw_items)
+        client = anthropic.AsyncAnthropic(
+            api_key=api_key,
+            base_url=base_url or None,
+        )
+        resp = await client.messages.create(
+            model=model,
+            max_tokens=2048,
+            system="You are a knowledge distiller. Output valid JSON only.",
+            messages=[{"role": "user", "content": prompt}],
+        )
 
-            text = resp.json()["choices"][0]["message"]["content"]
-            match = re.search(r"\[.*\]", text, re.DOTALL)
-            if match:
-                return json.loads(match.group())
+        text = resp.content[0].text if resp.content else ""
+        match = re.search(r"\[.*\]", text, re.DOTALL)
+        if match:
+            return json.loads(match.group())
     except Exception:
         _logger.warning("AI distill error", exc_info=True)
 

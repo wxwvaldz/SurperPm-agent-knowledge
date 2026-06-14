@@ -10,6 +10,7 @@ export const discussionSchema = z.object({
   parent_id: z.number().nullable().optional(),
   topic_id: z.number().nullable().optional(),
   image_data_uri: z.string().nullable().optional(),
+  card_response: z.any().nullable().optional(),
   created_at: z.string().optional().default(""),
 });
 

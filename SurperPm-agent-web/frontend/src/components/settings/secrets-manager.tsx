@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { secretListOptions, secretKeys } from "@/lib/queries/secrets";
 import { api } from "@/lib/api";
 import type { Secret } from "@/lib/schemas/secret";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Pencil } from "lucide-react";
 import { Button } from "@/components/retroui/Button";
 import { Input } from "@/components/retroui/Input";
 import { Label } from "@/components/retroui/Label";
@@ -131,17 +131,17 @@ export function SecretsManager() {
       )}
 
       {secrets.length === 0 ? (
-        <p className="text-sm text-muted-foreground py-4">
-          No secrets configured yet. Click &quot;Add Secret&quot; to get
-          started.
+        <p className="text-xs text-muted-foreground py-3">
+          No secrets yet. Add API keys, tokens, or server credentials.
         </p>
       ) : (
-        <div className="border-2 border-border divide-y-2 divide-border">
+        <div className="border border-border divide-y divide-border">
           {secrets.map((secret) => (
             <SecretRow
               key={secret.id}
               secret={secret}
               onDelete={() => deleteMutation.mutate(secret.id)}
+              onUpdate={() => queryClient.invalidateQueries({ queryKey: secretKeys.all() })}
               isDeleting={deleteMutation.isPending}
             />
           ))}
@@ -154,54 +154,60 @@ export function SecretsManager() {
 interface SecretRowProps {
   secret: Secret;
   onDelete: () => void;
+  onUpdate: () => void;
   isDeleting: boolean;
 }
 
-function SecretRow({ secret, onDelete, isDeleting }: SecretRowProps) {
+function SecretRow({ secret, onDelete, onUpdate, isDeleting }: SecretRowProps) {
   const [revealed, setRevealed] = useState<string | null>(null);
   const [revealing, setRevealing] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editValue, setEditValue] = useState("");
 
   const handleReveal = async () => {
-    if (revealed !== null) {
-      setRevealed(null);
-      return;
-    }
+    if (revealed !== null) { setRevealed(null); return; }
     setRevealing(true);
     try {
-      const res = await api.get<{ value: string }>(
-        `/global-config/secrets/${secret.id}/reveal`
-      );
+      const res = await api.get<{ value: string }>(`/global-config/secrets/${secret.id}/reveal`);
       setRevealed(res.value);
-    } catch {
-      setRevealed("[error fetching value]");
-    } finally {
-      setRevealing(false);
-    }
+    } catch { setRevealed("[error]"); }
+    finally { setRevealing(false); }
   };
 
+  const handleSaveEdit = async () => {
+    await api.patch(`/global-config/secrets/${secret.id}`, { key: secret.key, value: editValue, category: secret.category });
+    setEditing(false);
+    setEditValue("");
+    setRevealed(null);
+    onUpdate();
+  };
+
+  if (editing) {
+    return (
+      <div className="flex items-center gap-2 px-3 py-2">
+        <span className="font-mono text-xs font-medium shrink-0">{secret.key}</span>
+        <Input value={editValue} onChange={(e) => setEditValue(e.target.value)} placeholder="New value" type="password" className="flex-1 text-xs h-7" />
+        <Button size="sm" onClick={handleSaveEdit} disabled={!editValue.trim()}>Save</Button>
+        <Button size="sm" variant="outline" onClick={() => setEditing(false)}>Cancel</Button>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex items-center justify-between px-4 py-3">
-      <div className="flex items-center gap-4">
-        <span className="font-mono text-sm font-medium">{secret.key}</span>
-        <Badge>{secret.category}</Badge>
-        <span className="font-mono text-xs text-muted-foreground">
+    <div className="flex items-center justify-between px-3 py-2">
+      <div className="flex items-center gap-3">
+        <span className="font-mono text-xs font-medium">{secret.key}</span>
+        <Badge size="sm">{secret.category}</Badge>
+        <span className="font-mono text-[10px] text-muted-foreground">
           {revealed !== null ? revealed : "***"}
         </span>
       </div>
-      <div className="flex items-center gap-2">
-        <button
-          onClick={handleReveal}
-          disabled={revealing}
-          className="p-1.5 border-2 border-border bg-background hover:bg-muted transition-all disabled:opacity-50"
-          title={revealed !== null ? "Hide" : "Show"}
-        >
-          {revealing ? (
-            <span className="inline-block w-3.5 h-3.5 animate-spin rounded-full border-2 border-foreground border-t-transparent" />
-          ) : revealed !== null ? (
-            <EyeOff size={14} />
-          ) : (
-            <Eye size={14} />
-          )}
+      <div className="flex items-center gap-1">
+        <button onClick={handleReveal} disabled={revealing} className="p-1 hover:bg-muted transition-colors" title={revealed !== null ? "Hide" : "Show"}>
+          {revealing ? <span className="inline-block w-3 h-3 animate-spin rounded-full border border-foreground border-t-transparent" /> : revealed !== null ? <EyeOff size={12} /> : <Eye size={12} />}
+        </button>
+        <button onClick={() => setEditing(true)} className="p-1 hover:bg-muted transition-colors" title="Edit">
+          <Pencil size={12} />
         </button>
         <Button
           variant="outline"

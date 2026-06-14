@@ -4,7 +4,7 @@ import rehypeHighlight from 'rehype-highlight'
 
 export function MarkdownContent({ content, className = '' }: { content: string; className?: string }) {
   return (
-    <div className={`max-w-full overflow-hidden ${className}`}>
+    <div className={`max-w-full overflow-hidden w-full ${className}`}>
     <ReactMarkdown
       remarkPlugins={[remarkGfm]}
       rehypePlugins={[rehypeHighlight]}

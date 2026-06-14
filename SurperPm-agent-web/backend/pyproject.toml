@@ -12,7 +12,6 @@ dependencies = [
     "pygithub>=2.3",
     "python-multipart>=0.0.9",
     "pydantic>=2.7",
-    "pydantic-settings>=2.3",
     "itsdangerous>=2.2",
     "sqlmodel>=0.0.38",
     "aiosqlite>=0.22.1",

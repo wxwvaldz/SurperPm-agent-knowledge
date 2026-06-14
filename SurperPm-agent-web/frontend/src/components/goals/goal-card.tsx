@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import {
   CheckCircle, XCircle, Clock, Loader2, RotateCcw,
-  Ban, Eye, Pause, Play, Trash2,
+  Ban, Eye, Pause, Play, Timer, Trash2, MessagesSquare, Upload,
 } from "lucide-react";
 import { motion } from "motion/react";
 import { api } from "../../lib/api";
@@ -11,6 +11,7 @@ import { goalKeys } from "../../lib/queries/goals";
 import { executionListOptions, executionKeys } from "../../lib/queries/executions";
 import { useExecutionStore } from "../../lib/stores/execution";
 import type { Goal } from "../../lib/schemas/goal";
+import type { Execution } from "../../lib/schemas/execution";
 import { Button } from "@/components/retroui/Button";
 import { Badge } from "@/components/retroui/Badge";
 import { Dialog } from "@/components/retroui/Dialog";
@@ -18,12 +19,13 @@ import { Text } from "@/components/retroui/Text";
 
 /* ─── helpers ─── */
 
-const statusCfg: Record<string, { icon: typeof Clock; label: string; borderL: string; bar: string; iconColor: string }> = {
-  todo:   { icon: Clock,       label: "To Do",       borderL: "border-l-blue-400",   bar: "bg-blue-400",   iconColor: "text-blue-600" },
-  doing:  { icon: Loader2,     label: "In Progress",  borderL: "border-l-yellow-400", bar: "bg-yellow-400", iconColor: "text-yellow-600" },
-  review: { icon: Eye,         label: "Review",       borderL: "border-l-purple-400", bar: "bg-purple-400", iconColor: "text-purple-600" },
-  done:   { icon: CheckCircle, label: "Done",         borderL: "border-l-green-400",  bar: "bg-green-400",  iconColor: "text-green-600" },
-  failed: { icon: XCircle,     label: "Failed",       borderL: "border-l-red-400",    bar: "bg-red-400",    iconColor: "text-red-600" },
+const statusCfg: Record<string, { icon: typeof Clock; label: string; borderL: string; bar: string; iconColor: string; badgeVariant: string }> = {
+  scheduled: { icon: Timer,    label: "Scheduled",    borderL: "border-l-orange-400", bar: "bg-orange-400", iconColor: "text-orange-600", badgeVariant: "timeout" },
+  todo:   { icon: Clock,       label: "To Do",       borderL: "border-l-blue-400",   bar: "bg-blue-400",   iconColor: "text-blue-600",   badgeVariant: "todo" },
+  doing:  { icon: Loader2,     label: "In Progress",  borderL: "border-l-yellow-400", bar: "bg-yellow-400", iconColor: "text-yellow-600", badgeVariant: "running" },
+  review: { icon: Eye,         label: "Review",       borderL: "border-l-purple-400", bar: "bg-purple-400", iconColor: "text-purple-600", badgeVariant: "review" },
+  done:   { icon: CheckCircle, label: "Done",         borderL: "border-l-green-400",  bar: "bg-green-400",  iconColor: "text-green-600",  badgeVariant: "success" },
+  failed: { icon: XCircle,     label: "Failed",       borderL: "border-l-red-400",    bar: "bg-red-400",    iconColor: "text-red-600",    badgeVariant: "failed" },
 };
 
 interface GoalCardProps { goal: Goal }
@@ -41,19 +43,25 @@ export function GoalCard({ goal }: GoalCardProps) {
   const Icon = cfg.icon;
 
   const progress = useExecutionStore((s) => s.progress);
-  const execId = progress?.execution_id ?? localExecId;
-  const isExecuting = goal.status === "doing" && !!execId;
-  const isPaused = localPaused ?? (progress?.paused === true);
+  // Only trust progress from the global store if it belongs to this goal.
+  // Otherwise stale data from a different goal can cause cross-goal 404s.
+  const progressExecId = progress?.goal_id === goal.id ? progress.execution_id : undefined;
+  const execId = progressExecId ?? localExecId;
 
   /* ── executions query (background only, not gating buttons) ── */
-  const { data: executions = [] } = useQuery({
+  const { data: executions = [], isLoading: execsLoading } = useQuery({
     ...executionListOptions(goal.id),
     enabled: goal.status === "doing",
-    staleTime: 10_000,   // don't refetch constantly
   });
 
-  const runningExecution = executions.find(e => e.status === "pending" || e.status === "running");
+  const runningExecution = executions.find(e => e.status === "pending" || e.status === "running" || e.status === "paused");
   const finalExecId = execId ?? runningExecution?.id;
+  const isExecuting = goal.status === "doing" && !!finalExecId;
+  // Stuck "doing" goal — no in-flight execution after query settled
+  const isStuckDoing = goal.status === "doing" && !execsLoading && !isExecuting;
+  // Check paused: local optimistic > live progress > DB-persisted status
+  const dbPaused = runningExecution?.status === "paused";
+  const isPaused = localPaused ?? ((progress?.goal_id === goal.id && progress?.paused === true) || dbPaused);
 
   /* ── cache helpers ── */
   const invalidate = useCallback(() => {
@@ -61,7 +69,14 @@ export function GoalCard({ goal }: GoalCardProps) {
     queryClient.invalidateQueries({ queryKey: executionKeys.all(goal.id) });
   }, [queryClient, goal.id]);
 
+  // Prefer live WebSocket progress; fall back to DB-persisted token count
+  // (updated by polling) so tokens stay visible during pause/resume.
+  const displayTokens: number | undefined =
+    (progress?.goal_id === goal.id ? progress?.token_used : undefined) ?? runningExecution?.token_used ?? undefined;
+
   /* ── mutations with optimistic updates ── */
+
+  const execListKey = executionKeys.list(goal.id);
 
   const executeMutation = useMutation({
     mutationFn: () => api.post(`/goals/${goal.id}/execute`) as Promise<{ execution_id: string }>,
@@ -78,29 +93,74 @@ export function GoalCard({ goal }: GoalCardProps) {
 
   const pauseMutation = useMutation({
     mutationFn: (id: string) => api.post(`/goals/${goal.id}/executions/${id}/pause`),
-    onMutate: () => setLocalPaused(true),
+    onMutate: () => {
+      setLocalPaused(true);
+      // Optimistically update the execution in the query cache so the
+      // UI switches immediately — before the refetch from invalidate()
+      // completes.
+      const prev = queryClient.getQueryData<Execution[]>(execListKey);
+      if (prev) {
+        queryClient.setQueryData(
+          execListKey,
+          prev.map((e) =>
+            String(e.id) === String(finalExecId)
+              ? { ...e, status: "paused" as const }
+              : e,
+          ),
+        );
+      }
+    },
+    onError: (_err, _vars, _ctx) => {
+      setLocalPaused(null);
+      // Revert optimistic cache update on error
+      queryClient.invalidateQueries({ queryKey: execListKey });
+    },
     onSuccess: () => {
       const prog = useExecutionStore.getState().progress;
       if (prog) useExecutionStore.getState().updateProgress({ ...prog, paused: true });
       invalidate();
     },
-    onError: () => setLocalPaused(null),
   });
 
   const resumeMutation = useMutation({
     mutationFn: (id: string) => api.post(`/goals/${goal.id}/executions/${id}/resume`),
-    onMutate: () => setLocalPaused(false),
+    onMutate: () => {
+      setLocalPaused(false);
+      // Optimistically update the execution in the query cache so the
+      // UI switches immediately — before the refetch from invalidate()
+      // completes.
+      const prev = queryClient.getQueryData<Execution[]>(execListKey);
+      if (prev) {
+        queryClient.setQueryData(
+          execListKey,
+          prev.map((e) =>
+            String(e.id) === String(finalExecId)
+              ? { ...e, status: "running" as const }
+              : e,
+          ),
+        );
+      }
+    },
+    onError: (_err, _vars, _ctx) => {
+      setLocalPaused(null);
+      // Revert optimistic cache update on error
+      queryClient.invalidateQueries({ queryKey: execListKey });
+    },
     onSuccess: () => {
       const prog = useExecutionStore.getState().progress;
       if (prog) useExecutionStore.getState().updateProgress({ ...prog, paused: false });
       invalidate();
     },
-    onError: () => setLocalPaused(null),
   });
 
   const cancelMutation = useMutation({
     mutationFn: (id: string) => api.post(`/goals/${goal.id}/executions/${id}/cancel`),
-    onMutate: () => setLocalExecId(null),
+    onMutate: () => {
+      setLocalExecId(null);
+      // Clear streaming progress immediately — the backend now updates DB
+      // on cancel so the next refetch will show "failed" status.
+      useExecutionStore.getState().clearProgress();
+    },
     onSuccess: () => invalidate(),
     onError: () => setLocalExecId(null),
   });
@@ -124,21 +184,21 @@ export function GoalCard({ goal }: GoalCardProps) {
     <>
       {isExecuting && !isPaused ? (
         <motion.div
-          animate={{ borderColor: ["var(--border)", "rgba(250,204,21,0.7)", "var(--border)"] }}
+          animate={{ boxShadow: ["3px 3px 0 0 #000", "3px 3px 0 0 rgba(250,204,21,0.7)", "3px 3px 0 0 #000"] }}
           transition={{ repeat: Infinity, duration: 2 }}
-          className={`border border-border bg-card cursor-pointer hover:bg-muted/30 transition-all overflow-hidden ${cfg.borderL} border-l-3`}
+          className={`border border-border bg-card cursor-pointer transition-all overflow-hidden ${cfg.borderL} border-l-4`}
           onClick={() => navigate(`/goals/${goal.id}/execute`)}
         >
-          <CardContent {...{ goal, cfg, Icon, isExecuting, isPaused, progress, finalExecId,
+          <CardContent {...{ goal, cfg, Icon, isExecuting, isPaused, isStuckDoing, displayTokens, finalExecId,
             executeMutation, pauseMutation, resumeMutation, cancelMutation, reviewMutation,
             setConfirmDelete }} />
         </motion.div>
       ) : (
         <div
-          className={`border border-border bg-card cursor-pointer hover:bg-muted/30 transition-all overflow-hidden ${cfg.borderL} border-l-3`}
+          className={`border border-border bg-card cursor-pointer transition-all overflow-hidden ${cfg.borderL} border-l-4`}
           onClick={() => navigate(`/goals/${goal.id}/execute`)}
         >
-          <CardContent {...{ goal, cfg, Icon, isExecuting, isPaused, progress, finalExecId,
+          <CardContent {...{ goal, cfg, Icon, isExecuting, isPaused, isStuckDoing, displayTokens, finalExecId,
             executeMutation, pauseMutation, resumeMutation, cancelMutation, reviewMutation,
             setConfirmDelete }} />
         </div>
@@ -146,8 +206,8 @@ export function GoalCard({ goal }: GoalCardProps) {
 
       <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
         <Dialog.Content size="sm">
-          <Dialog.Header><Text as="h3" className="text-sm">Delete Goal</Text></Dialog.Header>
-          <div className="p-3 space-y-2">
+          <Dialog.Header><Text as="h3" className="text-sm font-bold">Delete Goal</Text></Dialog.Header>
+          <div className="p-4 space-y-4">
             <p className="text-sm text-foreground/70">
               Delete "{goal.title}"? This removes the goal and its execution history and cannot be undone.
             </p>
@@ -167,92 +227,115 @@ export function GoalCard({ goal }: GoalCardProps) {
 
 /* ─── card body (avoid duplication) ─── */
 
-function CardContent({ goal, cfg, Icon, isExecuting, isPaused, progress, finalExecId,
+function CardContent({ goal, cfg, Icon, isExecuting, isPaused, isStuckDoing, displayTokens, finalExecId,
   executeMutation, pauseMutation, resumeMutation, cancelMutation, reviewMutation, setConfirmDelete,
 }: any) {
+  const navigate = useNavigate();
   return (
     <>
       <div className={`h-1 w-full ${cfg.bar}`} />
-      <div className="p-3">
-        <div className="flex items-start gap-2">
-          <Icon size={18} className={`mt-0.5 shrink-0 ${cfg.iconColor} ${isExecuting && !isPaused ? "animate-spin" : ""}`} />
+      <div className="p-2">
+        <div className="flex items-start gap-1.5">
+          <Icon size={14} className={`mt-0.5 shrink-0 ${cfg.iconColor} ${isExecuting && !isPaused ? "animate-spin" : ""}`} />
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold truncate">{goal.title}</p>
-            {goal.description && <p className="text-xs text-foreground/60 mt-1 line-clamp-2">{goal.description}</p>}
-            {(goal.schedule || goal.delay_until) && (
-              <div className="flex gap-1.5 mt-1">
-                {goal.schedule && (
-                  <span className="text-[10px] text-orange-600 font-medium">
-                    ↻ every {goal.schedule}h
-                  </span>
-                )}
-                {goal.delay_until && goal.status === "todo" && (
-                  <span className="text-[10px] text-blue-600 font-medium">
-                    ⏱ {new Date(goal.delay_until).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
-                  </span>
-                )}
-              </div>
-            )}
+            <div className="flex items-start justify-between gap-1">
+              <p className="text-xs font-bold truncate">{goal.title}</p>
+              {goal.status !== "doing" && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); setConfirmDelete(true); }}
+                  className="shrink-0 p-1 text-foreground/30 hover:text-destructive transition-colors"
+                  aria-label="Delete"
+                >
+                  <Trash2 size={12} />
+                </button>
+              )}
+            </div>
+            {goal.description && <p className="text-[10px] text-foreground/60 mt-0.5 line-clamp-1">{goal.description}</p>}
           </div>
         </div>
 
-        {isExecuting && progress && (
-          <div className="mt-2.5 space-y-1.5">
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-foreground/60">
-                Tokens: <span className="font-bold tabular-nums text-foreground">{(progress.token_used ?? 0).toLocaleString()}</span>
-                {goal.token_budget && <> / <span className="font-bold tabular-nums text-foreground">{goal.token_budget.toLocaleString()}</span></>}
-              </span>
+        {isExecuting && (
+          <div className="mt-2 space-y-1">
+            <div className="flex items-center justify-between text-[10px]">
+              {displayTokens != null ? (
+                <span className="text-foreground/60">
+                  Tokens: <span className="font-bold tabular-nums text-foreground">{displayTokens.toLocaleString()}</span>
+                  {goal.token_budget && <> / <span className="font-bold tabular-nums text-foreground">{goal.token_budget.toLocaleString()}</span></>}
+                </span>
+              ) : (
+                <span className="text-foreground/40 italic">Waiting for first token…</span>
+              )}
               {isPaused && <Badge size="sm" variant="outline">PAUSED</Badge>}
-              {goal.token_budget && <span className="font-bold tabular-nums text-foreground">{Math.round(((progress.token_used ?? 0) / goal.token_budget) * 100)}%</span>}
+              {goal.token_budget && displayTokens != null && <span className="font-bold tabular-nums text-foreground">{Math.round((displayTokens / goal.token_budget) * 100)}%</span>}
             </div>
-            {goal.token_budget && (
-              <div className="h-2 w-full border-2 border-border bg-background">
-                <div className="h-full bg-primary transition-all duration-500" style={{ width: `${Math.min(100, ((progress.token_used ?? 0) / goal.token_budget) * 100)}%` }} />
+            {goal.token_budget && displayTokens != null && (
+              <div className="h-2 w-full border border-border bg-background">
+                <div className="h-full bg-primary transition-all duration-500" style={{ width: `${Math.min(100, (displayTokens / goal.token_budget) * 100)}%` }} />
               </div>
             )}
           </div>
         )}
 
-        <div className="mt-2.5 flex flex-wrap gap-1" onClick={e => e.stopPropagation()}>
-          {(goal.status === "todo" || goal.status === "failed") && (
+        <div className="mt-2 flex flex-wrap gap-1" onClick={e => e.stopPropagation()}>
+          {isStuckDoing && (
             <Button size="sm" onClick={() => executeMutation.mutate()} disabled={executeMutation.isPending} className="flex-1">
-              {goal.status === "failed" ? <RotateCcw size={14} /> : <Play size={14} />}
-              {executeMutation.isPending ? "..." : goal.status === "failed" ? "Retry" : "Execute"}
+              <Play size={14} /> {executeMutation.isPending ? "..." : "Re-run"}
             </Button>
           )}
 
-          {goal.status === "doing" && finalExecId && (
+          {(goal.status === "todo" || goal.status === "scheduled" || goal.status === "failed") && (
+            <>
+              <Button size="sm" onClick={() => executeMutation.mutate()} disabled={executeMutation.isPending} className="flex-1">
+                {goal.status === "failed" ? <RotateCcw size={14} /> : <Play size={14} />}
+                {executeMutation.isPending ? "..." : goal.status === "failed" ? "Retry" : "Execute"}
+              </Button>
+              {goal.schedule && (
+                <Button size="sm" variant="outline" onClick={async () => {
+                  try { await api.post(`/goals/recipes/from-goal/${goal.id}`); } catch { /* already shared */ }
+                }} title="Share as recipe">
+                  <Upload size={12} />
+                </Button>
+              )}
+            </>
+          )}
+
+          {goal.status === "doing" && !isStuckDoing && (
             <>
               {isPaused ? (
-                <Button size="sm" variant="outline" onClick={() => resumeMutation.mutate(finalExecId!)} disabled={resumeMutation.isPending} className="flex-1">
+                <Button size="sm" variant="outline" onClick={() => finalExecId && resumeMutation.mutate(finalExecId)} disabled={!finalExecId || resumeMutation.isPending} className="flex-1">
                   <Play size={14} /> {resumeMutation.isPending ? "..." : "Resume"}
                 </Button>
               ) : (
-                <Button size="sm" variant="outline" onClick={() => pauseMutation.mutate(finalExecId!)} disabled={pauseMutation.isPending} className="flex-1">
+                <Button size="sm" variant="outline" onClick={() => finalExecId && pauseMutation.mutate(finalExecId)} disabled={!finalExecId || pauseMutation.isPending} className="flex-1">
                   <Pause size={14} /> {pauseMutation.isPending ? "..." : "Pause"}
                 </Button>
               )}
-              <Button size="sm" variant="outline" onClick={() => cancelMutation.mutate(finalExecId!)} disabled={cancelMutation.isPending} className="flex-1">
+              <Button size="sm" variant="outline" onClick={() => finalExecId && cancelMutation.mutate(finalExecId)} disabled={!finalExecId || cancelMutation.isPending} className="flex-1">
                 <Ban size={14} /> {cancelMutation.isPending ? "..." : "Cancel"}
               </Button>
             </>
           )}
 
-          {goal.status === "review" && (
-            <>
-              <Button size="sm" onClick={() => reviewMutation.mutate("approve")} disabled={reviewMutation.isPending} className="flex-1">
-                <CheckCircle size={14} /> {reviewMutation.isPending ? "..." : "Approve"}
-              </Button>
-              <Button size="sm" variant="outline" onClick={() => reviewMutation.mutate("reject")} disabled={reviewMutation.isPending} className="flex-1">
-                <XCircle size={14} /> {reviewMutation.isPending ? "..." : "Reject"}
-              </Button>
-            </>
-          )}
+          {goal.status === "review" && <>
+            <Button size="sm" onClick={() => reviewMutation.mutate("approve")} disabled={reviewMutation.isPending} className="flex-1 text-xs">
+              <CheckCircle size={12} /> {reviewMutation.isPending ? "..." : "Accept"}
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => reviewMutation.mutate("reject")} disabled={reviewMutation.isPending} className="flex-1 text-xs">
+              <XCircle size={12} /> {reviewMutation.isPending ? "..." : "Reject"}
+            </Button>
+          </>}
 
-          {goal.status !== "doing" && (
-            <Button size="sm" variant="outline" onClick={() => setConfirmDelete(true)} aria-label="Delete goal">
-              <Trash2 size={14} />
+          {(goal.status === "done" || goal.status === "failed") && (
+            <Button size="sm" variant="outline" onClick={async () => {
+              try {
+                const topicName = `Goal: ${goal.title.slice(0, 36)}`;
+                const t = await api.post<{ id: number }>("/topics", { name: topicName });
+                const msg = `Let's discuss goal "${goal.title}" (status: ${goal.status}).${goal.description ? `\n\nDescription: ${goal.description}` : ""}`;
+                await api.post("/discussions", { role: "user", content: msg, topic_id: t.id });
+                navigate(`/?topic=${t.id}`);
+              } catch { /* stay on current page */ }
+            }} className="flex-1 text-xs">
+              <MessagesSquare size={12} /> Discuss
             </Button>
           )}
         </div>

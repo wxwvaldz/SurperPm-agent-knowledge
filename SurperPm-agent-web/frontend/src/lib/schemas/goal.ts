@@ -1,8 +1,8 @@
 import { z } from "zod";
 
 export const goalSchema = z.object({
-  id: z.number(),
-  workspace_id: z.string(),
+  id: z.union([z.string(), z.number()]),
+  workspace_id: z.string().nullable().optional().default(""),
   title: z.string(),
   description: z.string().nullable().optional(),
   status: z.string().default("todo"),
@@ -12,7 +12,8 @@ export const goalSchema = z.object({
   assigned_to: z.string().nullable().optional(),
   suggested_assignee: z.string().nullable().optional(),
   parent_goal_id: z.number().nullable().optional(),
-  group_id: z.number().nullable().optional(),
+  topic_id: z.number().nullable().optional(),
+  plugins: z.array(z.string()).nullable().optional(),
   token_budget: z.number().nullable().optional(),
   deadline: z.string().nullable().optional(),
   slug: z.string().nullable().optional(),

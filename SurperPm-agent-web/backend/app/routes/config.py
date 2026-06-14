@@ -1,11 +1,10 @@
-"""Config tabs — integrations / profile / extensions / usage / ai."""
-import json
+"""Config tabs — integrations / profile / extensions / usage / ai / server."""
 from pathlib import Path
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
-from app.config import settings
+from app.config import get_config, settings, update_config
 from app.routes.deps import require_auth
 
 router = APIRouter()
@@ -29,16 +28,6 @@ async def integrations(_user: dict = Depends(require_auth)) -> list:
             "name": "模型 endpoint",
             "endpoint": settings.anthropic_base_url or "https://api.anthropic.com",
             "connected": bool(settings.anthropic_api_key),
-        },
-        {
-            "name": "豆包 API",
-            "endpoint": settings.doubao_endpoint,
-            "connected": bool(settings.doubao_api_key),
-        },
-        {
-            "name": "LAP",
-            "endpoint": settings.lap_url or "",
-            "connected": bool(settings.lap_token),
         },
     ]
     return items
@@ -85,24 +74,6 @@ async def extensions(_user: dict = Depends(require_auth)) -> list:
     return result
 
 
-AI_CONFIG_FILE = Path(__file__).resolve().parent.parent.parent / "ai_config.json"
-
-_AI_DEFAULTS = {"base_url": "", "api_key": "", "model": ""}
-
-
-def _read_ai_config() -> dict:
-    if AI_CONFIG_FILE.is_file():
-        try:
-            return {**_AI_DEFAULTS, **json.loads(AI_CONFIG_FILE.read_text("utf-8"))}
-        except (json.JSONDecodeError, OSError):
-            pass
-    return dict(_AI_DEFAULTS)
-
-
-def _write_ai_config(data: dict) -> None:
-    AI_CONFIG_FILE.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
-
-
 class AIConfigPayload(BaseModel):
     base_url: str | None = None
     api_key: str | None = None
@@ -111,12 +82,14 @@ class AIConfigPayload(BaseModel):
 
 @router.get("/ai")
 async def get_ai_config(_user: dict = Depends(require_auth)) -> dict:
-    cfg = _read_ai_config()
+    cfg = get_config()
+    ai = cfg.get("ai", {})
+    api_key = ai.get("api_key", "")
     return {
-        "base_url": cfg.get("base_url", ""),
-        "api_key_masked": ("*" * 8 + cfg["api_key"][-4:]) if cfg.get("api_key") else "",
-        "api_key_set": bool(cfg.get("api_key")),
-        "model": cfg.get("model", ""),
+        "base_url": ai.get("base_url", ""),
+        "api_key_masked": ("*" * 8 + api_key[-4:]) if api_key else "",
+        "api_key_set": bool(api_key),
+        "model": ai.get("model", ""),
     }
 
 
@@ -124,14 +97,81 @@ async def get_ai_config(_user: dict = Depends(require_auth)) -> dict:
 async def update_ai_config(
     payload: AIConfigPayload, _user: dict = Depends(require_auth)
 ) -> dict:
-    cfg = _read_ai_config()
+    patch: dict = {}
     if payload.base_url is not None:
-        cfg["base_url"] = payload.base_url
+        patch["base_url"] = payload.base_url
     if payload.api_key is not None:
-        cfg["api_key"] = payload.api_key
+        patch["api_key"] = payload.api_key
     if payload.model is not None:
-        cfg["model"] = payload.model
-    _write_ai_config(cfg)
+        patch["model"] = payload.model
+    if patch:
+        update_config({"ai": patch})
+    return {"ok": True}
+
+
+class ServerConfigPayload(BaseModel):
+    ai: dict | None = None
+    github: dict | None = None
+    paths: dict | None = None
+    server: dict | None = None
+
+
+@router.get("/server")
+async def get_server_config(_user: dict = Depends(require_auth)) -> dict:
+    """Return the full config.json (masking sensitive fields)."""
+    cfg = get_config()
+    safe = {
+        "server": {
+            "port": cfg["server"].get("port", 8000),
+            "database_url": cfg["server"].get("database_url", ""),
+            "frontend_url": cfg["server"].get("frontend_url", ""),
+            "session_secret_set": bool(cfg["server"].get("session_secret")),
+            "encryption_key_set": bool(cfg["server"].get("encryption_key")),
+        },
+        "ai": {
+            "base_url": cfg["ai"].get("base_url", ""),
+            "api_key_set": bool(cfg["ai"].get("api_key")),
+            "model": cfg["ai"].get("model", ""),
+        },
+        "github": {
+            "oauth_client_id": cfg["github"].get("oauth_client_id", ""),
+            "oauth_configured": bool(cfg["github"].get("oauth_client_secret")),
+            "oauth_redirect_uri": cfg["github"].get("oauth_redirect_uri", ""),
+        },
+        "paths": cfg.get("paths", {}),
+    }
+    return safe
+
+
+@router.patch("/server")
+async def update_server_config(
+    payload: ServerConfigPayload, _user: dict = Depends(require_auth)
+) -> dict:
+    """Update config.json sections. Sensitive keys in server section are excluded."""
+    patch: dict = {}
+    if payload.ai is not None:
+        patch["ai"] = payload.ai
+    if payload.github is not None:
+        patch["github"] = payload.github
+    if payload.paths is not None:
+        patch["paths"] = payload.paths
+    if payload.server is not None:
+        safe_server = {k: v for k, v in payload.server.items()
+                       if k not in ("session_secret", "encryption_key")}
+        if safe_server:
+            patch["server"] = safe_server
+    if patch:
+        old_cfg = get_config()
+        update_config(patch)
+
+        if payload.paths is not None:
+            new_cfg = get_config()
+            old_kr = old_cfg.get("paths", {}).get("knowledge_repo", "")
+            new_kr = new_cfg.get("paths", {}).get("knowledge_repo", "")
+            if new_kr != old_kr:
+                from app.services.knowledge_store import reinit_store
+                reinit_store()
+
     return {"ok": True}
 
 

@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { globalConfigOptions, globalConfigKeys } from "@/lib/queries/global-config";
-import { Card } from "@/components/retroui/Card";
 import { Button } from "@/components/retroui/Button";
 import { Input } from "@/components/retroui/Input";
 import { Label } from "@/components/retroui/Label";
@@ -75,11 +74,9 @@ export function LearningSourcesTab() {
 
   return (
     <div className="max-w-2xl space-y-6">
-      <Card>
-        <Card.Header>
-          <Card.Title>Internal Sources</Card.Title>
-        </Card.Header>
-        <Card.Content>
+      <div className="space-y-2">
+        <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Internal Sources</p>
+        <div className="border border-border p-3 space-y-2">
           <div className="space-y-3">
             <label className="flex items-center gap-2 text-sm">
               <input
@@ -110,14 +107,12 @@ export function LearningSourcesTab() {
               AI discussions
             </label>
           </div>
-        </Card.Content>
-      </Card>
+        </div>
+      </div>
 
-      <Card>
-        <Card.Header>
-          <Card.Title>External Sources</Card.Title>
-        </Card.Header>
-        <Card.Content>
+      <div className="space-y-2">
+        <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">External Sources</p>
+        <div className="border border-border p-3 space-y-2">
           <div className="space-y-4">
             {config.external_sources.length > 0 && (
               <div className="space-y-2">
@@ -163,14 +158,12 @@ export function LearningSourcesTab() {
               </Button>
             </div>
           </div>
-        </Card.Content>
-      </Card>
+        </div>
+      </div>
 
-      <Card>
-        <Card.Header>
-          <Card.Title>Schedule & Decay</Card.Title>
-        </Card.Header>
-        <Card.Content>
+      <div className="space-y-2">
+        <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Schedule & Decay</p>
+        <div className="border border-border p-3 space-y-2">
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label className="text-xs mb-1 block">Distill interval (hours)</Label>
@@ -239,8 +232,8 @@ export function LearningSourcesTab() {
               />
             </div>
           </div>
-        </Card.Content>
-      </Card>
+        </div>
+      </div>
 
       <div className="flex items-center gap-3">
         <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>

@@ -11,7 +11,7 @@ const Empty = ({ className, ...props }: IEmptyProps) => {
   return (
     <div
       className={cn(
-        "flex flex-col items-center justify-center p-4 md:p-8 border-2 rounded shadow-md transition-all hover:shadow-none bg-card text-center",
+        "flex flex-col items-center justify-center p-4 md:p-8 border rounded  transition-all  bg-card text-center",
         className,
       )}
       {...props}

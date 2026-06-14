@@ -7,7 +7,6 @@ import {
   workspaceReposOptions,
   workspaceRepoKeys,
 } from "@/lib/queries/workspaces";
-import { Card } from "@/components/retroui/Card";
 import { Input } from "@/components/retroui/Input";
 import { Button } from "@/components/retroui/Button";
 
@@ -59,11 +58,9 @@ function ReposCard({ workspaceId }: { workspaceId: string }) {
   const pending = addMutation.isPending || removeMutation.isPending;
 
   return (
-    <Card>
-      <Card.Header>
-        <Card.Title>Git Repositories</Card.Title>
-      </Card.Header>
-      <Card.Content>
+    <div className="space-y-2">
+      <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Git Repositories</p>
+      <div className="border border-border p-3 space-y-2">
         <div className="space-y-3">
           <p className="text-xs text-muted-foreground">
             Global repo list — select from these when creating goals.
@@ -99,7 +96,7 @@ function ReposCard({ workspaceId }: { workspaceId: string }) {
             </p>
           )}
         </div>
-      </Card.Content>
-    </Card>
+      </div>
+    </div>
   );
 }

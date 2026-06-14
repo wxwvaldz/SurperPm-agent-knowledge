@@ -11,7 +11,6 @@ import { Text } from '@/components/retroui/Text'
 import { Alert } from '@/components/retroui/Alert'
 import { Tooltip } from '@/components/retroui/Tooltip'
 
-import { hasProfileInStorage } from './Profile'
 
 const GithubIcon = ({ size = 20, className = '' }: { size?: number; className?: string }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}>
@@ -452,7 +451,7 @@ export default function LoginOAuth() {
         await api.post('/auth/github/complete', {})
         refresh()
         // Check localStorage for personal profile
-        navigate(hasProfileInStorage() ? '/' : '/profile')
+        navigate('/')
         return
       }
     } catch {
@@ -517,7 +516,7 @@ export default function LoginOAuth() {
         const slug = selectedRepo.name.toLowerCase().replace(/[^a-z0-9-]/g, '-')
         ws = await api.post<{ id: string; name: string; slug: string }>('/workspaces', { name: selectedRepo.name, slug, repo_url: repoFullName })
       }
-      navigate(`/profile`)
+      navigate('/')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Login failed, please retry')
     } finally {

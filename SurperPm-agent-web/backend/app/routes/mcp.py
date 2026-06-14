@@ -13,17 +13,13 @@ router = APIRouter()
 _logger = logging.getLogger(__name__)
 
 
-def _mcp_root() -> Path:
+def _servers_file() -> Path:
     from app.services.knowledge_store import get_store
 
     store = get_store()
-    root = store._root.parent / "mcp"
-    root.mkdir(parents=True, exist_ok=True)
-    return root
-
-
-def _servers_file() -> Path:
-    return _mcp_root() / "servers.json"
+    f = store.logs_root / "settings" / "mcp-servers.json"
+    f.parent.mkdir(parents=True, exist_ok=True)
+    return f
 
 
 def _read_servers() -> dict:
@@ -49,7 +45,7 @@ def _plugin_root() -> Path | None:
     from app.services.knowledge_store import get_store
 
     store = get_store()
-    knowledge_plugins = store._root.parent / "plugins"
+    knowledge_plugins = store.knowledge_root / "plugins"
     if knowledge_plugins.is_dir():
         return knowledge_plugins
     from app.config import settings

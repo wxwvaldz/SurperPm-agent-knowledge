@@ -26,7 +26,7 @@ def _get_knowledge_path() -> Path:
     global _KNOWLEDGE_PATH
     if _KNOWLEDGE_PATH is None:
         p = settings.knowledge_repo_path
-        _KNOWLEDGE_PATH = Path(p) if p else Path("knowledge")
+        _KNOWLEDGE_PATH = Path(p) if p else Path("data/knowledge")
     return _KNOWLEDGE_PATH
 
 
@@ -54,16 +54,31 @@ class KnowledgeStore:
     def knowledge_root(self) -> Path:
         return self._knowledge_root
 
+    @property
+    def logs_root(self) -> Path:
+        return self._root
+
     def _lock_for(self, collection: str) -> asyncio.Lock:
         if collection not in self._locks:
             self._locks[collection] = asyncio.Lock()
         return self._locks[collection]
 
+    _COLLECTION_ROUTES: dict[str, str] = {
+        "goals": "goal/meta/goals.jsonl",
+        "goal_groups": "goal/meta/groups.jsonl",
+        "executions": "goal/meta/executions.jsonl",
+        "topics": "discuss/topics.jsonl",
+        "workspaces": "settings/workspaces.jsonl",
+    }
+
     def _path_for(self, collection: str) -> Path:
-        return self._root / f"{collection}.jsonl"
+        rel = self._COLLECTION_ROUTES.get(collection, f"{collection}.jsonl")
+        p = self._root / rel
+        p.parent.mkdir(parents=True, exist_ok=True)
+        return p
 
     def _discussion_path(self, topic_id: int | None) -> Path:
-        d = self._root / "discussions"
+        d = self._root / "discuss" / "messages"
         d.mkdir(parents=True, exist_ok=True)
         fname = f"{topic_id}.jsonl" if topic_id is not None else "_no_topic.jsonl"
         return d / fname
@@ -224,10 +239,13 @@ class KnowledgeStore:
                 result.append(row)
         return result
 
+    def _disc_dir(self) -> Path:
+        d = self._root / "discuss" / "messages"
+        d.mkdir(parents=True, exist_ok=True)
+        return d
+
     def list_all_discussions(self, **filters: Any) -> list[dict]:
-        disc_dir = self._root / "discussions"
-        if not disc_dir.is_dir():
-            return []
+        disc_dir = self._disc_dir()
         all_rows: list[dict] = []
         for f in sorted(disc_dir.glob("*.jsonl")):
             all_rows.extend(self._load_jsonl(f))
@@ -238,10 +256,7 @@ class KnowledgeStore:
         ]
 
     def get_discussion(self, discussion_id: int) -> dict | None:
-        disc_dir = self._root / "discussions"
-        if not disc_dir.is_dir():
-            return None
-        for f in disc_dir.glob("*.jsonl"):
+        for f in self._disc_dir().glob("*.jsonl"):
             for row in self._load_jsonl(f):
                 if row.get("id") == discussion_id:
                     return row
@@ -254,42 +269,65 @@ class KnowledgeStore:
         async with lock:
             rows = self._get_disc_cache(topic_id)
             all_ids: list[int] = []
-            disc_dir = self._root / "discussions"
-            if disc_dir.is_dir():
-                for f in disc_dir.glob("*.jsonl"):
-                    for r in self._load_jsonl(f):
-                        if isinstance(r.get("id"), int):
-                            all_ids.append(r["id"])
+            for f in self._disc_dir().glob("*.jsonl"):
+                for r in self._load_jsonl(f):
+                    if isinstance(r.get("id"), int):
+                        all_ids.append(r["id"])
             all_ids.extend(
                 r.get("id", 0) for r in rows if isinstance(r.get("id"), int)
             )
             next_id = (max(all_ids) + 1) if all_ids else 1
             data.setdefault("id", next_id)
-            now = _now_iso()
-            data.setdefault("created_at", now)
+            data.setdefault("created_at", _now_iso())
             rows.append(data)
             self._cache[key] = rows
             self._flush_jsonl(self._discussion_path(topic_id), rows)
             return data
 
     async def delete_discussion(self, discussion_id: int) -> bool:
-        disc_dir = self._root / "discussions"
-        if not disc_dir.is_dir():
-            return False
-        for f in disc_dir.glob("*.jsonl"):
+        for f in self._disc_dir().glob("*.jsonl"):
             rows = self._load_jsonl(f)
             filtered = [r for r in rows if r.get("id") != discussion_id]
             if len(filtered) < len(rows):
                 self._flush_jsonl(f, filtered)
+                # Sync cache
+                for key in list(self._cache):
+                    if key.startswith("_disc_"):
+                        cached = self._cache[key]
+                        self._cache[key] = [r for r in cached if r.get("id") != discussion_id]
                 return True
         return False
+
+    async def clear_topic_messages(self, topic_id: int | None) -> int:
+        """Delete ALL messages for a topic. Returns count deleted."""
+        path = self._discussion_path(topic_id)
+        count = 0
+        if path.exists():
+            count = len(self._load_jsonl(path))
+            path.unlink()
+        key = self._disc_cache_key(topic_id)
+        self._cache.pop(key, None)
+        return count
+
+    async def update_discussion_content(self, topic_id: int | None, disc_id: int, content: str) -> None:
+        """Update a discussion message's content (cache + disk coherent, locked)."""
+        key = self._disc_cache_key(topic_id)
+        lock = self._lock_for(key)
+        async with lock:
+            rows = self._get_disc_cache(topic_id)
+            for row in rows:
+                if row.get("id") == disc_id:
+                    row["content"] = content
+                    break
+            self._cache[key] = rows
+            self._flush_jsonl(self._discussion_path(topic_id), rows)
 
     # ------------------------------------------------------------------
     # Settings (single JSON file, not JSONL)
     # ------------------------------------------------------------------
 
     def get_settings(self) -> dict:
-        path = self._root / "settings.json"
+        path = self._root / "settings" / "settings.json"
         if not path.exists():
             return {}
         try:
@@ -304,7 +342,7 @@ class KnowledgeStore:
             for k, v in patch.items():
                 cfg[k] = _serialize_value(v)
             cfg["updated_at"] = _now_iso()
-            path = self._root / "settings.json"
+            path = self._root / "settings" / "settings.json"
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(
                 json.dumps(cfg, ensure_ascii=False, indent=2, default=str),
@@ -341,3 +379,11 @@ def get_store() -> KnowledgeStore:
     if _store_instance is None:
         _store_instance = KnowledgeStore()
     return _store_instance
+
+
+def reinit_store(knowledge_path: Path | None = None) -> KnowledgeStore:
+    """Re-create the singleton with a new path (e.g. after config change)."""
+    global _store_instance, _KNOWLEDGE_PATH
+    _KNOWLEDGE_PATH = None
+    _store_instance = None
+    return init_store(knowledge_path)

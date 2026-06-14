@@ -25,7 +25,7 @@ class TopicUpdate(BaseModel):
 
 @router.get("")
 async def list_topics(
-    goal_id: int,
+    goal_id: str,
     store: KnowledgeStore = Depends(get_store),
     _user: dict = Depends(require_auth),
 ):
@@ -38,7 +38,7 @@ async def list_topics(
 
 @router.post("", status_code=201)
 async def create_topic(
-    goal_id: int,
+    goal_id: str,
     body: TopicCreate,
     store: KnowledgeStore = Depends(get_store),
     _user: dict = Depends(require_auth),
@@ -66,7 +66,7 @@ async def create_topic(
 
 @router.get("/{topic_id}")
 async def get_topic(
-    goal_id: int,
+    goal_id: str,
     topic_id: int,
     store: KnowledgeStore = Depends(get_store),
     _user: dict = Depends(require_auth),
@@ -82,7 +82,7 @@ async def get_topic(
 
 @router.patch("/{topic_id}")
 async def update_topic(
-    goal_id: int,
+    goal_id: str,
     topic_id: int,
     body: TopicUpdate,
     store: KnowledgeStore = Depends(get_store),
@@ -107,7 +107,7 @@ async def update_topic(
 
 @router.delete("/{topic_id}", status_code=204)
 async def delete_topic(
-    goal_id: int,
+    goal_id: str,
     topic_id: int,
     store: KnowledgeStore = Depends(get_store),
     _user: dict = Depends(require_auth),
@@ -120,4 +120,5 @@ async def delete_topic(
         raise HTTPException(status_code=404, detail="Topic not found")
     if topic.get("name") == "general":
         raise HTTPException(status_code=400, detail="Cannot delete the #general topic")
+    await store.clear_topic_messages(topic_id)
     await store.delete("topics", topic_id)

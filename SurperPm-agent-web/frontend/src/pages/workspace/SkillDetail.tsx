@@ -8,11 +8,13 @@ import { Text } from "@/components/retroui/Text";
 import { Button } from "@/components/retroui/Button";
 import { Badge } from "@/components/retroui/Badge";
 import { MarkdownContent } from "@/components/business/markdown-content";
+import { useConfirm } from "@/components/business/confirm-dialog";
 
 export default function SkillDetailPage() {
   const { skillId: slug } = useParams<{ skillId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { confirm: confirmDelete } = useConfirm();
 
   const { data: workspaces = [] } = useQuery(workspaceListOptions());
   const workspaceId = workspaces[0]?.id ?? "";
@@ -56,7 +58,7 @@ export default function SkillDetailPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="px-6 pt-6 pb-4 border-b-2 border-border shrink-0">
+      <div className="px-4 pt-4 pb-3 border-b border-border shrink-0">
         <div className="flex items-center gap-3">
           <Button
             variant="ghost"
@@ -92,8 +94,8 @@ export default function SkillDetailPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => {
-                if (confirm("Delete this skill?")) {
+              onClick={async () => {
+                if (await confirmDelete({ message: "Delete this skill?", destructive: true })) {
                   deleteMutation.mutate();
                 }
               }}
@@ -105,7 +107,7 @@ export default function SkillDetailPage() {
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-auto p-6">
+      <div className="flex-1 min-h-0 overflow-auto p-4">
         {skill.body ? (
           <MarkdownContent content={skill.body} />
         ) : (
