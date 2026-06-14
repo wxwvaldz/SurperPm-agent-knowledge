@@ -80,7 +80,8 @@ export function GoalCard({ goal }: GoalCardProps) {
     mutationFn: (id: string) => api.post(`/goals/${goal.id}/executions/${id}/pause`),
     onMutate: () => setLocalPaused(true),
     onSuccess: () => {
-      useExecutionStore.getState().updateProgress({ paused: true } as any);
+      const prog = useExecutionStore.getState().progress;
+      if (prog) useExecutionStore.getState().updateProgress({ ...prog, paused: true });
       invalidate();
     },
     onError: () => setLocalPaused(null),
@@ -90,7 +91,8 @@ export function GoalCard({ goal }: GoalCardProps) {
     mutationFn: (id: string) => api.post(`/goals/${goal.id}/executions/${id}/resume`),
     onMutate: () => setLocalPaused(false),
     onSuccess: () => {
-      useExecutionStore.getState().updateProgress({ paused: false } as any);
+      const prog = useExecutionStore.getState().progress;
+      if (prog) useExecutionStore.getState().updateProgress({ ...prog, paused: false });
       invalidate();
     },
     onError: () => setLocalPaused(null),
@@ -124,7 +126,7 @@ export function GoalCard({ goal }: GoalCardProps) {
         <motion.div
           animate={{ boxShadow: ["3px 3px 0 0 #000", "3px 3px 0 0 rgba(250,204,21,0.7)", "3px 3px 0 0 #000"] }}
           transition={{ repeat: Infinity, duration: 2 }}
-          className={`border-2 border-border bg-card cursor-pointer hover:shadow-[1px_1px_0_0_#000] hover:translate-x-[2px] hover:translate-y-[2px] transition-all ${cfg.borderL} border-l-4`}
+          className={`border-2 border-border bg-card cursor-pointer hover:shadow-[1px_1px_0_0_#000] hover:translate-x-[2px] hover:translate-y-[2px] transition-all overflow-hidden ${cfg.borderL} border-l-4`}
           onClick={() => navigate(`/goals/${goal.id}/execute`)}
         >
           <CardContent {...{ goal, cfg, Icon, isExecuting, isPaused, progress, finalExecId,
@@ -133,7 +135,7 @@ export function GoalCard({ goal }: GoalCardProps) {
         </motion.div>
       ) : (
         <div
-          className={`border-2 border-border bg-card cursor-pointer hover:shadow-[1px_1px_0_0_#000] hover:translate-x-[2px] hover:translate-y-[2px] transition-all shadow-[3px_3px_0_0_#000] ${cfg.borderL} border-l-4`}
+          className={`border-2 border-border bg-card cursor-pointer hover:shadow-[1px_1px_0_0_#000] hover:translate-x-[2px] hover:translate-y-[2px] transition-all shadow-[3px_3px_0_0_#000] overflow-hidden ${cfg.borderL} border-l-4`}
           onClick={() => navigate(`/goals/${goal.id}/execute`)}
         >
           <CardContent {...{ goal, cfg, Icon, isExecuting, isPaused, progress, finalExecId,
@@ -198,7 +200,7 @@ function CardContent({ goal, cfg, Icon, isExecuting, isPaused, progress, finalEx
           </div>
         )}
 
-        <div className="mt-2.5 flex gap-1" onClick={e => e.stopPropagation()}>
+        <div className="mt-2.5 flex flex-wrap gap-1" onClick={e => e.stopPropagation()}>
           {(goal.status === "todo" || goal.status === "failed") && (
             <Button size="sm" onClick={() => executeMutation.mutate()} disabled={executeMutation.isPending} className="flex-1">
               {goal.status === "failed" ? <RotateCcw size={14} /> : <Play size={14} />}

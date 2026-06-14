@@ -7,6 +7,8 @@ import '@fontsource-variable/space-grotesk'
 
 import { AuthProvider } from './context/AuthContext'
 import { QueryProvider } from './providers/query-provider'
+import { ToastProvider } from './components/business/toast'
+import { ConfirmProvider } from './components/business/confirm-dialog'
 import ProtectedRoute from './components/ProtectedRoute'
 import { AppLayout } from './components/layout/app-layout'
 import { GoalLayout } from './components/layout/goal-layout'
@@ -26,19 +28,18 @@ import './index.css'
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <QueryProvider>
+      <ToastProvider>
+      <ConfirmProvider>
       <AuthProvider>
-        <BrowserRouter>
+        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <Routes>
             <Route path="/login" element={<LoginOAuth />} />
             <Route path="/login-pat" element={<Login />} />
             <Route element={<ProtectedRoute />}>
               <Route element={<AppLayout />}>
-                <Route index element={<GoalListPage />} />
-                <Route path="discuss" element={<DiscussPage />} />
+                <Route index element={<DiscussPage />} />
+                <Route path="goals" element={<GoalListPage />} />
                 <Route path="knowledge" element={<KnowledgePage />} />
-                <Route path="learning" element={<Navigate to="/knowledge" replace />} />
-                <Route path="team" element={<Navigate to="/settings" replace />} />
-                <Route path="plugins" element={<Navigate to="/settings" replace />} />
                 <Route path="settings" element={<GlobalSettingsPage />} />
                 <Route path="skills/:skillId" element={<SkillDetailPage />} />
                 <Route path="goals/:goalId" element={<GoalLayout />}>
@@ -48,11 +49,12 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
                 </Route>
               </Route>
               <Route path="/profile" element={<ProfilePage />} />
-              <Route path="/workspace/:slug/*" element={<Navigate to="/" replace />} />
             </Route>
           </Routes>
         </BrowserRouter>
       </AuthProvider>
+      </ConfirmProvider>
+      </ToastProvider>
     </QueryProvider>
   </React.StrictMode>,
 )

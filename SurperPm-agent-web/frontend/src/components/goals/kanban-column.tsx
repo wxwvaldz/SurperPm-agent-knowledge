@@ -12,7 +12,7 @@ interface KanbanColumnProps {
 
 export function KanbanColumn({ title, icon: Icon, iconColor, bgBar, goals }: KanbanColumnProps) {
   return (
-    <div className="flex flex-col border-2 border-border bg-background min-h-0">
+    <div className="flex flex-col border-2 border-border bg-background min-h-0 min-w-0 overflow-hidden">
       {/* colored top bar — thicker for visual weight */}
       <div className={`h-2 w-full shrink-0 ${bgBar}`} />
 

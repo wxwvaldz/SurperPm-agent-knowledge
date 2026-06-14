@@ -1,4 +1,4 @@
-import { Wrench, Globe, Trash2 } from "lucide-react";
+import { Wrench, Trash2 } from "lucide-react";
 import { Card } from "@/components/retroui/Card";
 import { Badge } from "@/components/retroui/Badge";
 import { Button } from "@/components/retroui/Button";
@@ -11,8 +11,6 @@ interface SkillCardProps {
 }
 
 export function SkillCard({ skill, onClick, onDelete }: SkillCardProps) {
-  const isGithub = skill.source_type === "github_import";
-
   return (
     <Card className="cursor-pointer hover:border-primary hover:shadow-[4px_4px_0_0_#000] transition-all">
       <Card.Content>
@@ -21,25 +19,24 @@ export function SkillCard({ skill, onClick, onDelete }: SkillCardProps) {
             className="flex items-center justify-center w-9 h-9 border-2 border-border bg-primary shrink-0 shadow-[2px_2px_0_0_#000]"
             onClick={onClick}
           >
-            {isGithub ? <Globe size={18} /> : <Wrench size={18} />}
+            <Wrench size={18} />
           </div>
           <div className="flex-1 min-w-0" onClick={onClick}>
             <div className="flex items-center gap-2 mb-1">
-              <span className="font-head text-sm font-bold truncate">{skill.name}</span>
+              <span className="font-head text-sm font-bold truncate">
+                {skill.name}
+              </span>
             </div>
             {skill.description && (
-              <p className="text-xs text-muted-foreground line-clamp-2">{skill.description}</p>
+              <p className="text-xs text-muted-foreground line-clamp-2">
+                {skill.description}
+              </p>
             )}
-            <div className="flex items-center gap-2 mt-2">
-              <Badge variant="surface" size="sm">
-                {isGithub ? "GitHub" : "手动"}
-              </Badge>
-              {skill.file_count > 0 && (
-                <Badge variant="default" size="sm">
-                  {skill.file_count} 文件
-                </Badge>
-              )}
-            </div>
+            {skill.tags && (
+              <div className="flex items-center gap-2 mt-2">
+                <Badge variant="surface" size="sm">{skill.tags}</Badge>
+              </div>
+            )}
           </div>
           {onDelete && (
             <Button

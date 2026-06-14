@@ -5,15 +5,19 @@ import { parseWithFallback } from "../utils/parse-with-fallback";
 
 export const goalKeys = {
   all: () => ["goals"] as const,
-  list: () => [...goalKeys.all(), "list"] as const,
+  list: (groupId?: number) =>
+    [...goalKeys.all(), "list", groupId ?? "all"] as const,
   detail: (id: number) => ["goals", "detail", id] as const,
 };
 
-export const goalListOptions = () =>
+export const goalListOptions = (groupId?: number) =>
   queryOptions({
-    queryKey: goalKeys.list(),
+    queryKey: goalKeys.list(groupId),
     queryFn: async () => {
-      const res = await api.get("/goals");
+      const params = new URLSearchParams();
+      if (groupId !== undefined) params.set("group_id", String(groupId));
+      const qs = params.toString();
+      const res = await api.get(`/goals${qs ? `?${qs}` : ""}`);
       return parseWithFallback(goalListSchema, res, []);
     },
   });

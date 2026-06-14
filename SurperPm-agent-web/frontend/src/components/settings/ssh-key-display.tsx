@@ -13,6 +13,7 @@ export function SshKeyDisplay() {
 
   const { data, isLoading, error } = useQuery(sshKeyOptions());
   const publicKey = data?.ssh_public_key ?? "";
+  const hasPrivateKey = data?.has_private_key ?? false;
 
   const generateMutation = useMutation({
     mutationFn: () => api.post<{ ssh_public_key: string }>("/global-config/generate-ssh-key"),
@@ -74,6 +75,13 @@ export function SshKeyDisplay() {
 
   return (
     <div className="space-y-3">
+      {!hasPrivateKey && (
+        <Alert status="warning">
+          <Alert.Description>
+            私钥丢失，当前公钥无法使用。请重新生成密钥对并更新 GitHub 上的公钥。
+          </Alert.Description>
+        </Alert>
+      )}
       <p className="text-sm text-foreground/60">
         Add this public key to your Git hosting provider (GitHub, GitLab, etc.)
         to allow SuperPmAgent to access your repositories.
@@ -90,6 +98,23 @@ export function SshKeyDisplay() {
           {copied ? "Copied!" : "Copy"}
         </Button>
       </div>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => generateMutation.mutate()}
+        disabled={generateMutation.isPending}
+      >
+        <RefreshCw
+          size={14}
+          className={generateMutation.isPending ? "animate-spin" : ""}
+        />
+        {generateMutation.isPending ? "Generating..." : "Regenerate SSH Key"}
+      </Button>
+      {generateMutation.isError && (
+        <p className="text-xs text-destructive font-bold">
+          Failed to generate key: {(generateMutation.error as Error).message}
+        </p>
+      )}
     </div>
   );
 }

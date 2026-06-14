@@ -34,6 +34,7 @@ interface ExecutionStore {
   logsByExec: Record<string, LogLine[]>;
   updateProgress: (data: ExecutionProgress) => void;
   clearProgress: () => void;
+  clearLogs: () => void;
 }
 
 export const useExecutionStore = create<ExecutionStore>((set) => ({
@@ -86,4 +87,5 @@ export const useExecutionStore = create<ExecutionStore>((set) => ({
   // Keep logsByExec so completed-run logs stay visible until the query refetch
   // loads the DB-persisted copy — only the live token banner is cleared.
   clearProgress: () => set({ progress: null }),
+  clearLogs: () => set({ logsByExec: {}, progress: null }),
 }));

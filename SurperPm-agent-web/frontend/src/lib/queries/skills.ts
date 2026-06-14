@@ -6,7 +6,8 @@ import { parseWithFallback } from "../utils/parse-with-fallback";
 export const skillKeys = {
   all: (wsId: string) => ["skills", wsId] as const,
   list: (wsId: string) => [...skillKeys.all(wsId), "list"] as const,
-  detail: (wsId: string, id: number) => [...skillKeys.all(wsId), id] as const,
+  detail: (wsId: string, slug: string) =>
+    [...skillKeys.all(wsId), slug] as const,
 };
 
 export const skillListOptions = (workspaceId: string) =>
@@ -16,13 +17,17 @@ export const skillListOptions = (workspaceId: string) =>
       const res = await api.get(`/workspaces/${workspaceId}/skills`);
       return parseWithFallback(skillSummaryListSchema, res, []);
     },
+    enabled: !!workspaceId,
   });
 
-export const skillDetailOptions = (workspaceId: string, skillId: number) =>
+export const skillDetailOptions = (workspaceId: string, slug: string) =>
   queryOptions({
-    queryKey: skillKeys.detail(workspaceId, skillId),
+    queryKey: skillKeys.detail(workspaceId, slug),
     queryFn: async () => {
-      const res = await api.get(`/workspaces/${workspaceId}/skills/${skillId}`);
+      const res = await api.get(
+        `/workspaces/${workspaceId}/skills/${slug}`,
+      );
       return parseWithFallback(skillDetailSchema, res, null);
     },
+    enabled: !!workspaceId && !!slug,
   });

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type Mous
 import { useBrowserWS, type BrowserTarget } from "@/lib/use-browser-ws";
 import { Button } from "@/components/retroui/Button";
 import { Input } from "@/components/retroui/Input";
-import { ArrowLeft, ArrowRight, RotateCw, Globe, Plus, X, Scissors, BookMarked, Pencil, Trash2, Check } from "lucide-react";
+import { ArrowLeft, ArrowRight, RotateCw, Globe, Plus, X, Scissors, BookMarked, Pencil, Trash2, Check, ZoomIn, ZoomOut, Hand, MousePointer2 } from "lucide-react";
 
 const PRESET_BOOKMARKS: { label: string; url: string }[] = [
   { label: "GitHub", url: "https://github.com" },
@@ -15,8 +15,8 @@ function bookmarkStorageKey(target: BrowserTarget): string {
     : `browser-bookmarks-ws-${target.workspaceId}`;
 }
 
-const SERVER_W = 1280;
-const SERVER_H = 960;
+const SERVER_W = 960;
+const SERVER_H = 720;
 
 interface BrowserPanelProps {
   target: BrowserTarget;
@@ -50,6 +50,24 @@ export function BrowserPanel({ target, onScreenshotCapture }: BrowserPanelProps)
   });
   const [showBookmarks, setShowBookmarks] = useState(false);
   const bookmarksRef = useRef<HTMLDivElement>(null);
+
+  // Zoom
+  const [zoom, setZoom] = useState(1);
+  const ZOOM_STEP = 1.3;
+  const MIN_ZOOM = 1;
+  const MAX_ZOOM = 4;
+  const isZoomed = zoom > 1;
+  // panMode: when zoomed, true = drag-to-pan, false = click-to-interact
+  const [panMode, setPanMode] = useState(true);
+  const togglePanMode = useCallback(() => setPanMode((p) => !p), []);
+  const zoomIn = useCallback(() => setZoom((z) => Math.min(Math.round(z * ZOOM_STEP * 100) / 100, MAX_ZOOM)), []);
+  const zoomOut = useCallback(() => {
+    setZoom((z) => {
+      const next = Math.round((z / ZOOM_STEP) * 100) / 100;
+      return next < MIN_ZOOM ? MIN_ZOOM : next;
+    });
+  }, []);
+  const zoomReset = useCallback(() => setZoom(1), []);
 
   const persistBookmarks = useCallback(
     (next: string[]) => {
@@ -198,32 +216,145 @@ export function BrowserPanel({ target, onScreenshotCapture }: BrowserPanelProps)
     setUrlInput("");
   }, [urlInput, navigate]);
 
+  // Pan-to-scroll (zoom mode)
+  const scrollWrapperRef = useRef<HTMLDivElement>(null);
+  const isPanning = useRef(false);
+  const panStart = useRef({ x: 0, y: 0, sx: 0, sy: 0 });
+
+  const handleZoomMouseDown = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      if (e.button !== 0 || isSelecting || isDoodling || !panMode) return;
+      const el = scrollWrapperRef.current;
+      if (!el) return;
+      isPanning.current = true;
+      panStart.current = { x: e.clientX, y: e.clientY, sx: el.scrollLeft, sy: el.scrollTop };
+      e.preventDefault();
+    },
+    [isSelecting, isDoodling, panMode],
+  );
+
+  useEffect(() => {
+    const onMove = (e: globalThis.MouseEvent) => {
+      if (!isPanning.current) return;
+      const el = scrollWrapperRef.current;
+      if (!el) return;
+      el.scrollLeft = panStart.current.sx - (e.clientX - panStart.current.x);
+      el.scrollTop = panStart.current.sy - (e.clientY - panStart.current.y);
+    };
+    const onUp = () => { isPanning.current = false; };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+    return () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+  }, []);
+
   const toServerCoords = useCallback(
     (e: MouseEvent<HTMLImageElement>) => {
-      const rect = e.currentTarget.getBoundingClientRect();
+      const img = e.currentTarget;
+      const rect = img.getBoundingClientRect();
+
+      if (isZoomed) {
+        // Zoomed mode: getBoundingClientRect already accounts for scroll.
+        // rect is the full img element box (zoom×wrapper) in viewport coords.
+        const nw = img.naturalWidth || SERVER_W;
+        const nh = img.naturalHeight || SERVER_H;
+        if (nw === 0 || nh === 0) return { x: 0, y: 0 };
+        const imgScale = Math.min(rect.width / nw, rect.height / nh);
+        const drawW = nw * imgScale;
+        const drawH = nh * imgScale;
+        const offsetX = (rect.width - drawW) / 2;
+        const offsetY = (rect.height - drawH) / 2;
+        const clickX = e.clientX - rect.left - offsetX;
+        const clickY = e.clientY - rect.top - offsetY;
+        return {
+          x: Math.round(Math.max(0, Math.min(clickX / drawW, 1)) * SERVER_W),
+          y: Math.round(Math.max(0, Math.min(clickY / drawH, 1)) * SERVER_H),
+        };
+      }
+
+      // Non-zoom: object-contain with letterboxing
+      const nw = img.naturalWidth || SERVER_W;
+      const nh = img.naturalHeight || SERVER_H;
+      if (nw === 0 || nh === 0) return { x: 0, y: 0 };
+      const scale = Math.min(rect.width / nw, rect.height / nh);
+      const drawW = nw * scale;
+      const drawH = nh * scale;
+      const offsetX = (rect.width - drawW) / 2;
+      const offsetY = (rect.height - drawH) / 2;
+      const clickX = e.clientX - rect.left - offsetX;
+      const clickY = e.clientY - rect.top - offsetY;
       return {
-        x: Math.round(((e.clientX - rect.left) / rect.width) * SERVER_W),
-        y: Math.round(((e.clientY - rect.top) / rect.height) * SERVER_H),
+        x: Math.round(Math.max(0, Math.min(clickX / drawW, 1)) * SERVER_W),
+        y: Math.round(Math.max(0, Math.min(clickY / drawH, 1)) * SERVER_H),
       };
     },
-    [],
+    [isZoomed],
   );
 
   const toCoords = useCallback(
     (e: MouseEvent<HTMLImageElement>) => {
       const container = canvasRef.current;
       if (!container) return null;
+      const img = e.currentTarget;
       const containerRect = container.getBoundingClientRect();
-      const imgRect = e.currentTarget.getBoundingClientRect();
+      const rect = img.getBoundingClientRect();
+
+      if (isZoomed) {
+        const nw = img.naturalWidth || SERVER_W;
+        const nh = img.naturalHeight || SERVER_H;
+        if (nw === 0 || nh === 0) return null;
+        const imgScale = Math.min(rect.width / nw, rect.height / nh);
+        const drawW = nw * imgScale;
+        const drawH = nh * imgScale;
+        const offsetX = (rect.width - drawW) / 2;
+        const offsetY = (rect.height - drawH) / 2;
+        const clickX = e.clientX - rect.left - offsetX;
+        const clickY = e.clientY - rect.top - offsetY;
+        return {
+          cx: e.clientX - containerRect.left,
+          cy: e.clientY - containerRect.top,
+          sx: Math.round(Math.max(0, Math.min(clickX / drawW, 1)) * SERVER_W),
+          sy: Math.round(Math.max(0, Math.min(clickY / drawH, 1)) * SERVER_H),
+        };
+      }
+
+      const nw = img.naturalWidth || SERVER_W;
+      const nh = img.naturalHeight || SERVER_H;
+      if (nw === 0 || nh === 0) return null;
+      const scale = Math.min(rect.width / nw, rect.height / nh);
+      const drawW = nw * scale;
+      const drawH = nh * scale;
+      const offsetX = (rect.width - drawW) / 2;
+      const offsetY = (rect.height - drawH) / 2;
+      const clickX = e.clientX - rect.left - offsetX;
+      const clickY = e.clientY - rect.top - offsetY;
       return {
         cx: e.clientX - containerRect.left,
         cy: e.clientY - containerRect.top,
-        sx: Math.round(((e.clientX - imgRect.left) / imgRect.width) * SERVER_W),
-        sy: Math.round(((e.clientY - imgRect.top) / imgRect.height) * SERVER_H),
+        sx: Math.round(Math.max(0, Math.min(clickX / drawW, 1)) * SERVER_W),
+        sy: Math.round(Math.max(0, Math.min(clickY / drawH, 1)) * SERVER_H),
       };
     },
-    [],
+    [isZoomed],
   );
+
+  // Track whether the primary mouse button is held on the remote browser image
+  const mouseIsDown = useRef(false);
+  const downServerPos = useRef<{ x: number; y: number } | null>(null);
+  const DRAG_PX = 5;
+
+  // Click ripple feedback
+  const [ripples, setRipples] = useState<{ id: number; cx: number; cy: number }[]>([]);
+  const rippleId = useRef(0);
+  const addRipple = useCallback((cx: number, cy: number) => {
+    const id = ++rippleId.current;
+    setRipples((prev) => [...prev.slice(-10), { id, cx, cy }]);
+    setTimeout(() => {
+      setRipples((prev) => prev.filter((r) => r.id !== id));
+    }, 600);
+  }, []);
 
   const handleMouseMove = useCallback(
     (e: MouseEvent<HTMLImageElement>) => {
@@ -242,78 +373,85 @@ export function BrowserPanel({ target, onScreenshotCapture }: BrowserPanelProps)
 
   const handleMouseDown = useCallback(
     (e: MouseEvent<HTMLImageElement>) => {
-      if (!isSelecting) return;
-      const coords = toCoords(e);
-      if (coords) {
-        setSelStart(coords);
-        setSelEnd(coords);
+      if (isSelecting) {
+        const coords = toCoords(e);
+        if (coords) {
+          setSelStart(coords);
+          setSelEnd(coords);
+        }
+        return;
       }
+      if (e.button !== 0) return;
+      mouseIsDown.current = true;
+      const { x, y } = toServerCoords(e);
+      downServerPos.current = { x, y };
+      // Visual ripple feedback
+      const rect = e.currentTarget.getBoundingClientRect();
+      addRipple(e.clientX - rect.left, e.clientY - rect.top);
+      send({ type: "mouse", x, y, action: "down" });
     },
-    [isSelecting, toCoords],
+    [isSelecting, toServerCoords, toCoords, addRipple],
   );
 
   const handleMouseUp = useCallback(
-    () => {
-      if (!isSelecting || !selStart || !selEnd) return;
-      const w = Math.abs(selEnd.cx - selStart.cx);
-      const h = Math.abs(selEnd.cy - selStart.cy);
-      if (w > 10 && h > 10 && imgRef.current && onScreenshotCapture) {
-        const img = imgRef.current;
-        const rect = img.getBoundingClientRect();
-        const scaleX = img.naturalWidth / rect.width;
-        const scaleY = img.naturalHeight / rect.height;
-        const container = canvasRef.current;
-        if (container) {
-          const containerRect = container.getBoundingClientRect();
-          const cropX = (Math.min(selStart.cx, selEnd.cx) - (rect.left - containerRect.left)) * scaleX;
-          const cropY = (Math.min(selStart.cy, selEnd.cy) - (rect.top - containerRect.top)) * scaleY;
-          const cropW = Math.abs(selEnd.cx - selStart.cx) * scaleX;
-          const cropH = Math.abs(selEnd.cy - selStart.cy) * scaleY;
+    (e: MouseEvent<HTMLImageElement>) => {
+      if (isSelecting) {
+        if (!selStart || !selEnd) return;
+        const cropW = Math.abs(selEnd.sx - selStart.sx);
+        const cropH = Math.abs(selEnd.sy - selStart.sy);
+        if (cropW > 10 && cropH > 10 && imgRef.current && onScreenshotCapture) {
+          const cropX = Math.min(selStart.sx, selEnd.sx);
+          const cropY = Math.min(selStart.sy, selEnd.sy);
 
           const canvas = document.createElement("canvas");
           canvas.width = cropW;
           canvas.height = cropH;
           const ctx = canvas.getContext("2d");
           if (ctx) {
-            ctx.drawImage(img, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
+            ctx.drawImage(imgRef.current, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
             const dataUri = canvas.toDataURL("image/png");
             onScreenshotCapture(dataUri);
           }
         }
+        setIsSelecting(false);
+        setSelStart(null);
+        setSelEnd(null);
+        return;
       }
-      setIsSelecting(false);
-      setSelStart(null);
-      setSelEnd(null);
-    },
-    [isSelecting, selStart, selEnd, onScreenshotCapture],
-  );
+      if (!mouseIsDown.current) return;
+      mouseIsDown.current = false;
 
-  const handleClick = useCallback(
-    (e: MouseEvent<HTMLImageElement>) => {
-      if (isSelecting) return;
-      const { x, y } = toServerCoords(e);
-      const button = e.button === 2 ? "right" : "left";
-      send({ type: "mouse", x, y, action: "click", button });
-    },
-    [send, toServerCoords, isSelecting],
-  );
+      const dp = downServerPos.current;
+      downServerPos.current = null;
+      if (!dp) return;
 
-  const handleDblClick = useCallback(
-    (e: MouseEvent<HTMLImageElement>) => {
-      if (isSelecting) return;
       const { x, y } = toServerCoords(e);
-      send({ type: "mouse", x, y, action: "dblclick" });
+      const dist = Math.sqrt((x - dp.x) ** 2 + (y - dp.y) ** 2);
+
+      if (dist < DRAG_PX) {
+        // Click: send "up" at the exact down position so Playwright fires click on
+        // the original element, regardless of any small mousemove jitter in between.
+        send({ type: "mouse", x: dp.x, y: dp.y, action: "up" });
+      } else {
+        // Drag: send "up" at the current mouse position (drag endpoint).
+        send({ type: "mouse", x, y, action: "up" });
+      }
     },
-    [send, toServerCoords, isSelecting],
+    [isSelecting, selStart, selEnd, onScreenshotCapture, toServerCoords, send],
   );
 
   const handleWheel = useCallback(
     (e: WheelEvent<HTMLImageElement>) => {
       if (isSelecting) return;
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        setZoom((z) => Math.min(3, Math.max(0.3, z - e.deltaY * 0.005)));
+        return;
+      }
       const { x, y } = toServerCoords(e as unknown as MouseEvent<HTMLImageElement>);
       send({ type: "scroll", x, y, deltaX: e.deltaX, deltaY: e.deltaY });
     },
-    [send, toServerCoords, isSelecting],
+    [send, toServerCoords, isSelecting, isZoomed],
   );
 
   const handleKeyDown = useCallback(
@@ -392,7 +530,7 @@ export function BrowserPanel({ target, onScreenshotCapture }: BrowserPanelProps)
         <Button
           variant="outline"
           size="sm"
-          onClick={() => send({ type: "key", key: "ArrowLeft", modifiers: ["Alt"] })}
+          onClick={() => send({ type: "back" })}
           title="后退"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
@@ -400,7 +538,7 @@ export function BrowserPanel({ target, onScreenshotCapture }: BrowserPanelProps)
         <Button
           variant="outline"
           size="sm"
-          onClick={() => send({ type: "key", key: "ArrowRight", modifiers: ["Alt"] })}
+          onClick={() => send({ type: "forward" })}
           title="前进"
         >
           <ArrowRight className="w-3.5 h-3.5" />
@@ -408,7 +546,7 @@ export function BrowserPanel({ target, onScreenshotCapture }: BrowserPanelProps)
         <Button
           variant="outline"
           size="sm"
-          onClick={() => send({ type: "key", key: "F5", modifiers: [] })}
+          onClick={() => send({ type: "reload" })}
           title="刷新"
         >
           <RotateCw className="w-3.5 h-3.5" />
@@ -452,6 +590,44 @@ export function BrowserPanel({ target, onScreenshotCapture }: BrowserPanelProps)
               <Trash2 className="w-3.5 h-3.5" />
             </Button>
           </>
+        )}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={zoomOut}
+          disabled={!isZoomed}
+          title="缩小"
+        >
+          <ZoomOut className="w-3.5 h-3.5" />
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={isZoomed ? zoomReset : zoomIn}
+          title={isZoomed ? "重置缩放" : "放大"}
+        >
+          <span className="text-[10px] font-mono tabular-nums w-7 text-center">
+            {zoom}x
+          </span>
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={zoomIn}
+          disabled={zoom >= MAX_ZOOM}
+          title="放大"
+        >
+          <ZoomIn className="w-3.5 h-3.5" />
+        </Button>
+        {isZoomed && (
+          <Button
+            variant={panMode ? "default" : "outline"}
+            size="sm"
+            onClick={togglePanMode}
+            title={panMode ? "拖拽模式 · 点击切换为操作模式" : "操作模式 · 点击切换为拖拽模式"}
+          >
+            {panMode ? <Hand className="w-3.5 h-3.5" /> : <MousePointer2 className="w-3.5 h-3.5" />}
+          </Button>
         )}
         <div className="relative" ref={bookmarksRef}>
           <Button
@@ -545,7 +721,12 @@ export function BrowserPanel({ target, onScreenshotCapture }: BrowserPanelProps)
       </div>
 
       {/* Browser Canvas */}
-      <div className="flex-1 relative overflow-hidden bg-neutral-900 min-h-0" ref={canvasRef}>
+      <div
+        className="flex-1 relative bg-neutral-900 min-h-0"
+        ref={canvasRef}
+        style={{ overflow: zoom > 1 ? "auto" : "hidden" }}
+        onWheel={(e) => { if (e.ctrlKey || e.metaKey) e.preventDefault(); }}
+      >
         {error && (
           <div className="absolute top-2 left-2 right-2 z-10 bg-red-100 border border-red-300 text-red-800 text-xs p-2 rounded">
             {error}
@@ -566,8 +747,11 @@ export function BrowserPanel({ target, onScreenshotCapture }: BrowserPanelProps)
             ref={imgRef}
             src={imageUrl}
             alt="shared browser"
-            className="w-full h-full object-contain select-none"
-            style={{ cursor: isSelecting ? "crosshair" : "default" }}
+            className="w-full h-full object-contain select-none origin-center"
+            style={{
+              cursor: isSelecting ? "crosshair" : "default",
+              transform: zoom !== 1 ? `scale(${zoom})` : undefined,
+            }}
             draggable={false}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
@@ -588,19 +772,20 @@ export function BrowserPanel({ target, onScreenshotCapture }: BrowserPanelProps)
             style={{ left: selRect.left, top: selRect.top, width: selRect.width, height: selRect.height }}
           />
         )}
-        <canvas
-          ref={doodleCanvasRef}
-          className="absolute inset-0 z-10"
-          style={{
-            cursor: isDoodling ? "crosshair" : "default",
-            pointerEvents: isDoodling ? "auto" : "none",
-            display: isDoodling ? "block" : "none",
-          }}
-          onMouseDown={handleDoodleDown}
-          onMouseMove={handleDoodleMove}
-          onMouseUp={stopDoodle}
-          onMouseLeave={stopDoodle}
-        />
+        {!isZoomed && isDoodling && (
+          <canvas
+            ref={doodleCanvasRef}
+            className="absolute inset-0 z-10"
+            style={{
+              cursor: "crosshair",
+              pointerEvents: "auto",
+            }}
+            onMouseDown={handleDoodleDown}
+            onMouseMove={handleDoodleMove}
+            onMouseUp={stopDoodle}
+            onMouseLeave={stopDoodle}
+          />
+        )}
       </div>
 
     </div>

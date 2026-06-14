@@ -9,6 +9,8 @@ import { Send, ImagePlus, X, Bot } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useDiscussionChat, type ChatMessage } from "@/lib/use-discussion-chat";
 import { Textarea } from "@/components/retroui/Textarea";
+import { parseGoalProposals, GoalProposalCards } from "@/components/discuss/goal-proposal-card";
+import { MarkdownContent } from "@/components/business/markdown-content";
 
 interface GroupChatProps {
   topicId?: number | null;
@@ -71,6 +73,10 @@ function MessageRow({
   const isSelf = !isAI && !!message.author && !!selfName && message.author === selfName;
   const name = isAI ? "AI" : message.author || "用户";
 
+  const { text: displayText, proposals } = isAI && !message.streaming
+    ? parseGoalProposals(message.content)
+    : { text: message.content, proposals: [] };
+
   return (
     <div className={`flex gap-2 ${isSelf ? "flex-row-reverse" : "flex-row"}`}>
       <Avatar isAI={isAI} name={name} avatarUrl={isSelf ? selfAvatar : undefined} />
@@ -79,15 +85,32 @@ function MessageRow({
           {isSelf ? "我" : name}
         </span>
         <div
-          className={`whitespace-pre-wrap break-words border-2 border-border px-3 py-2 text-sm shadow-[2px_2px_0_0_#000] ${
-            isSelf ? "bg-primary" : isAI ? "bg-background" : "bg-card"
+          className={`break-words border-2 border-border px-3 py-2 text-sm shadow-[2px_2px_0_0_#000] ${
+            isSelf ? "bg-primary whitespace-pre-wrap" : isAI ? "bg-background" : "bg-card whitespace-pre-wrap"
           }`}
         >
-          {message.content}
+          {message.imageDataUri && (
+            <img
+              src={message.imageDataUri}
+              alt="uploaded"
+              className="mb-2 max-h-64 w-auto border-2 border-border"
+            />
+          )}
+          {isAI ? (
+            // 流式输出中不渲染 Markdown，避免不完整语法导致格式混乱
+            message.streaming ? (
+              displayText
+            ) : (
+              <MarkdownContent content={displayText} />
+            )
+          ) : (
+            displayText
+          )}
           {message.streaming && (
             <span className="ml-0.5 inline-block h-3.5 w-1.5 animate-pulse bg-foreground align-middle" />
           )}
         </div>
+        {proposals.length > 0 && <GoalProposalCards proposals={proposals} />}
       </div>
     </div>
   );
@@ -203,7 +226,7 @@ export function GroupChat({ topicId, goalId, screenshotRef }: GroupChatProps) {
         </div>
       )}
 
-      <div className="flex shrink-0 items-end gap-2 border-t-2 border-border bg-background p-3">
+      <div className="flex shrink-0 items-center gap-2 border-t-2 border-border bg-background p-3">
         <input
           ref={fileRef}
           type="file"
@@ -219,6 +242,7 @@ export function GroupChat({ topicId, goalId, screenshotRef }: GroupChatProps) {
         >
           <ImagePlus size={18} />
         </button>
+
         <Textarea
           value={input}
           onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>

@@ -16,4 +16,5 @@ export const executionListOptions = (goalId: number) =>
       const res = await api.get(`/goals/${goalId}/executions`);
       return parseWithFallback(executionListSchema, res, []);
     },
+    staleTime: 30_000,
   });

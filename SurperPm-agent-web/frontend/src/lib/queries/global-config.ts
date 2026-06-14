@@ -14,6 +14,7 @@ export interface GlobalConfig {
   ai_base_url: string | null;
   ai_api_key_set: boolean;
   ai_model: string | null;
+  distill_config: string | null;
 }
 
 export interface SshKeyInfo {

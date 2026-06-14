@@ -726,7 +726,9 @@ input[type="password"]::-ms-clear {
   box-shadow: 4px 4px 0 0 var(--border);
   padding: 14px 18px;
   margin: 10px 0;
-  overflow-x: auto;
+  overflow: auto;
+  max-height: 400px;
+  max-width: 100%;
   font-size: 13px;
   line-height: 1.7;
   font-family: 'JetBrains Mono', 'Fira Code', monospace;
@@ -759,10 +761,15 @@ input[type="password"]::-ms-clear {
 }
 
 /* Tables */
+.aui-md-table-wrap {
+  overflow: auto;
+  max-height: 400px;
+  margin: 10px 0;
+}
 .aui-md-table {
   width: 100%;
   border-collapse: collapse;
-  margin: 10px 0;
+  margin: 0;
   border: 2px solid var(--border);
   box-shadow: 3px 3px 0 0 #eee;
 }

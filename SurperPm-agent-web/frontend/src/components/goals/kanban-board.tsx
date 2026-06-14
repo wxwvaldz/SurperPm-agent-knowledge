@@ -1,15 +1,16 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Clock, Loader2, Eye, CheckCircle, XCircle } from "lucide-react";
+import { Timer, Clock, Loader2, Eye, CheckCircle, XCircle } from "lucide-react";
 import { goalListOptions } from "../../lib/queries/goals";
 import { KanbanColumn } from "./kanban-column";
 
 const COLUMNS = [
-  { status: "todo",   title: "To Do",       icon: Clock,       iconColor: "text-blue-600",   bgBar: "bg-blue-400" },
-  { status: "doing",  title: "In Progress",  icon: Loader2,     iconColor: "text-yellow-600", bgBar: "bg-yellow-400" },
-  { status: "review", title: "Review",       icon: Eye,         iconColor: "text-purple-600", bgBar: "bg-purple-400" },
-  { status: "done",   title: "Done",         icon: CheckCircle, iconColor: "text-green-600",  bgBar: "bg-green-400" },
-  { status: "failed", title: "Failed",       icon: XCircle,     iconColor: "text-red-600",    bgBar: "bg-red-400" },
+  { status: "scheduled", title: "Scheduled",    icon: Timer,       iconColor: "text-orange-600", bgBar: "bg-orange-400" },
+  { status: "todo",      title: "To Do",        icon: Clock,       iconColor: "text-blue-600",   bgBar: "bg-blue-400" },
+  { status: "doing",     title: "In Progress",  icon: Loader2,     iconColor: "text-yellow-600", bgBar: "bg-yellow-400" },
+  { status: "review",    title: "Review",       icon: Eye,         iconColor: "text-purple-600", bgBar: "bg-purple-400" },
+  { status: "done",      title: "Done",         icon: CheckCircle, iconColor: "text-green-600",  bgBar: "bg-green-400" },
+  { status: "failed",    title: "Failed",       icon: XCircle,     iconColor: "text-red-600",    bgBar: "bg-red-400" },
 ] as const;
 
 function SkeletonColumn() {
@@ -43,10 +44,11 @@ function SkeletonColumn() {
 
 interface KanbanBoardProps {
   search: string;
+  groupId?: number;
 }
 
-export function KanbanBoard({ search }: KanbanBoardProps) {
-  const { data: goals = [], isLoading } = useQuery(goalListOptions());
+export function KanbanBoard({ search, groupId }: KanbanBoardProps) {
+  const { data: goals = [], isLoading } = useQuery(goalListOptions(groupId));
 
   const filtered = useMemo(() => {
     if (!search.trim()) return goals;
@@ -60,7 +62,7 @@ export function KanbanBoard({ search }: KanbanBoardProps) {
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 h-full">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 h-full">
         {COLUMNS.map((_, i) => (
           <SkeletonColumn key={i} />
         ))}
@@ -69,7 +71,7 @@ export function KanbanBoard({ search }: KanbanBoardProps) {
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 h-full">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 h-full">
       {COLUMNS.map(({ status, title, icon, iconColor, bgBar }) => (
         <KanbanColumn
           key={status}

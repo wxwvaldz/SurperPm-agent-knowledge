@@ -1,11 +1,13 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { WSClient } from "../lib/ws-client";
+import { standaloneDiscussionKeys } from "../lib/queries/discussions-standalone";
 import { executionKeys } from "../lib/queries/executions";
 import { goalKeys } from "../lib/queries/goals";
+import { skillKeys } from "../lib/queries/skills";
+import { standaloneTopicKeys } from "../lib/queries/topics-standalone";
 import { discussionKeys } from "../lib/queries/discussions";
 import { topicKeys } from "../lib/queries/topics";
-import { skillKeys } from "../lib/queries/skills";
 import { workspaceKeys } from "../lib/queries/workspaces";
 import { useExecutionStore } from "../lib/stores/execution";
 
@@ -35,7 +37,9 @@ export function WSProvider({ workspaceId, children }: WSProviderProps) {
       queryClient.invalidateQueries({ queryKey: goalKeys.all() });
     });
     ws.on("discussion_created", () => {
-      queryClient.invalidateQueries({ queryKey: ["discussions"] });
+      queryClient.invalidateQueries({
+        queryKey: standaloneDiscussionKeys.all(),
+      });
     });
     ws.on("execution_started", () => {
       queryClient.invalidateQueries({ queryKey: executionKeys.all() });
@@ -53,10 +57,10 @@ export function WSProvider({ workspaceId, children }: WSProviderProps) {
       queryClient.invalidateQueries({ queryKey: workspaceKeys.all() });
     });
     ws.on("topic_created", () => {
-      queryClient.invalidateQueries({ queryKey: ["topics"] });
+      queryClient.invalidateQueries({ queryKey: standaloneTopicKeys.all() });
     });
     ws.on("topic_updated", () => {
-      queryClient.invalidateQueries({ queryKey: ["topics"] });
+      queryClient.invalidateQueries({ queryKey: standaloneTopicKeys.all() });
     });
     ws.on("knowledge_updated", () => {
       queryClient.invalidateQueries({ queryKey: ["knowledge-tree"] });
@@ -103,12 +107,14 @@ export function GoalWSProvider({ goalId, children }: GoalWSProviderProps) {
     });
     ws.on("execution_started", () => {
       queryClient.invalidateQueries({ queryKey: goalKeys.all() });
+      queryClient.invalidateQueries({ queryKey: executionKeys.all(goalId) });
     });
     ws.on("execution_progress", (data) => {
       useExecutionStore.getState().updateProgress(data as any);
     });
     ws.on("execution_completed", () => {
       queryClient.invalidateQueries({ queryKey: goalKeys.all() });
+      queryClient.invalidateQueries({ queryKey: executionKeys.all(goalId) });
       useExecutionStore.getState().clearProgress();
     });
     ws.on("topic_created", () => {

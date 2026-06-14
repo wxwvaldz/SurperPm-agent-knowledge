@@ -9,9 +9,10 @@ import { api } from "./api";
 
 export interface ChatMessage {
   id: number;
-  role: "user" | "agent" | "system";
+  role: string;
   author: string | null;
   content: string;
+  imageDataUri: string | null;
   createdAt: string;
   streaming: boolean;
 }
@@ -42,13 +43,15 @@ export function useDiscussionChat({ topicId, goalId }: UseDiscussionChatArgs) {
     },
   });
 
-  const invalidate = useCallback(() => {
-    queryClient.invalidateQueries({
-      queryKey: isGoal
-        ? discussionKeys.all(goalId)
-        : standaloneDiscussionKeys.all(),
-    });
-  }, [queryClient, isGoal, goalId]);
+  const invalidate = useCallback(
+    () =>
+      queryClient.refetchQueries({
+        queryKey: isGoal
+          ? discussionKeys.all(goalId)
+          : standaloneDiscussionKeys.all(),
+      }),
+    [queryClient, isGoal, goalId],
+  );
 
   const streamingRef = useRef(new Map<number, string>());
   const [isRunning, setIsRunning] = useState(false);
@@ -70,10 +73,11 @@ export function useDiscussionChat({ topicId, goalId }: UseDiscussionChatArgs) {
       if (!matches(data.goal_id)) return;
 
       if (data.done) {
-        streamingRef.current.delete(data.discussion_id);
         setIsRunning(false);
-        invalidate();
-        forceRender((c) => c + 1);
+        invalidate().then(() => {
+          streamingRef.current.delete(data.discussion_id);
+          forceRender((c) => c + 1);
+        });
         return;
       }
 
@@ -132,6 +136,7 @@ export function useDiscussionChat({ topicId, goalId }: UseDiscussionChatArgs) {
         role: d.role,
         author: d.author ?? null,
         content: streamed ?? d.content,
+        imageDataUri: d.image_data_uri ?? null,
         createdAt: d.created_at,
         streaming: streamed != null,
       };
@@ -143,6 +148,7 @@ export function useDiscussionChat({ topicId, goalId }: UseDiscussionChatArgs) {
           role: "agent",
           author: null,
           content: text,
+          imageDataUri: null,
           createdAt: new Date().toISOString(),
           streaming: true,
         });

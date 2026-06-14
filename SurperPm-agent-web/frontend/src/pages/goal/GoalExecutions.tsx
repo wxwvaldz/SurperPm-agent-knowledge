@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -58,9 +58,28 @@ function LogLine({ line }: { line: LogLine }) {
   );
 }
 
+function LogPanel({ logs, autoScroll }: { logs: LogLine[]; autoScroll: boolean }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (autoScroll && ref.current) {
+      ref.current.scrollTop = ref.current.scrollHeight;
+    }
+  }, [logs.length, autoScroll]);
+  return (
+    <div
+      ref={ref}
+      className="border-t-2 border-border max-h-80 overflow-auto bg-background p-3 font-mono text-xs leading-relaxed space-y-1"
+    >
+      {logs.map((line, i) => (
+        <LogLine key={i} line={line} />
+      ))}
+    </div>
+  );
+}
+
 /* ─── status config ─── */
 
-const statusCfg = {
+const statusCfg: Record<string, { label: string; color: string; bar: string }> = {
   pending:  { label: "Pending",  color: "text-foreground/30", bar: "bg-foreground/30" },
   running:  { label: "Running",  color: "text-yellow-600",   bar: "bg-yellow-400" },
   success:  { label: "Success",  color: "text-green-600",    bar: "bg-green-400" },
@@ -73,14 +92,18 @@ const statusCfg = {
 export default function GoalExecutionsPage() {
   const { goalId: goalIdStr } = useParams<{ goalId: string }>();
   const goalId = Number(goalIdStr);
+  const valid = !!goalIdStr && !isNaN(goalId);
   const queryClient = useQueryClient();
   const [consoleOpen, setConsoleOpen] = useState(false);
 
-  if (!goalIdStr || isNaN(goalId)) return null;
-
-  const { data: goal } = useQuery(goalDetailOptions(goalId));
-  const { data: executions = [], isLoading } = useQuery(executionListOptions(goalId));
+  const { data: goal } = useQuery({ ...goalDetailOptions(goalId), enabled: valid });
+  const { data: executions = [], isLoading } = useQuery({ ...executionListOptions(goalId), enabled: valid });
   const canRun = goal?.status === "todo" || goal?.status === "failed";
+
+  if (!valid) return null;
+
+  // Clear stale log data from previous goal when navigating between goals.
+  useEffect(() => { useExecutionStore.getState().clearLogs(); }, [goalId]);
 
   const execMutation = useMutation({
     mutationFn: () => api.post(`/goals/${goalId}/execute`),
@@ -91,9 +114,9 @@ export default function GoalExecutionsPage() {
   });
 
   return (
-    <div className="p-6 space-y-5">
+    <div className="flex flex-col h-full p-6">
       {/* header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between shrink-0 mb-5">
         <div>
           <Text as="h3" className="text-lg">Executions</Text>
           <p className="text-xs text-foreground/40 mt-0.5">{executions.length} runs</p>
@@ -122,7 +145,7 @@ export default function GoalExecutionsPage() {
           </div>
         </Dialog.Content>
       </Dialog>
-
+      <div className="flex-1 min-h-0 overflow-auto">
       {/* loading */}
       {isLoading && (
         <div className="space-y-3">
@@ -162,6 +185,7 @@ export default function GoalExecutionsPage() {
           ))}
         </div>
       )}
+      </div>
     </div>
   );
 }
@@ -170,15 +194,24 @@ export default function GoalExecutionsPage() {
 
 function ExecutionCard({ exec }: { exec: Execution }) {
   const c = statusCfg[exec.status] ?? statusCfg.pending;
+  const isRunning = exec.status === "running";
 
   const liveLogs = useExecutionStore((s) => s.logsByExec[exec.id]);
-  const logs: LogLine[] =
-    exec.status === "running"
-      ? liveLogs ?? []
-      : (exec.logs as LogLine[] | null | undefined) ?? liveLogs ?? [];
+  const logs: LogLine[] = isRunning
+    ? liveLogs ?? []
+    : (exec.logs as LogLine[] | null | undefined) ?? liveLogs ?? [];
+
+  const [logOpen, setLogOpen] = useState(isRunning);
+  const [, tick] = useState(0);
+
+  useEffect(() => {
+    if (!isRunning) return;
+    setLogOpen(true);
+    const t = setInterval(() => tick((c) => c + 1), 1000);
+    return () => clearInterval(t);
+  }, [isRunning]);
 
   const duration = formatDuration(exec.started_at, exec.finished_at);
-  const [logOpen, setLogOpen] = useState(false);
 
   return (
     <div className="border-2 border-border bg-card shadow-[3px_3px_0_0_#000]">
@@ -234,6 +267,15 @@ function ExecutionCard({ exec }: { exec: Execution }) {
             {exec.error && (
               <span className="text-destructive font-bold">{exec.error}</span>
             )}
+            {exec.status === "failed" && (
+              <a
+                href="/"
+                className="flex items-center gap-1 text-primary hover:underline font-bold"
+                title="在 Discuss 中讨论此失败"
+              >
+                <ExternalLink size={10} /> 讨论
+              </a>
+            )}
           </div>
         </div>
       )}
@@ -249,11 +291,7 @@ function ExecutionCard({ exec }: { exec: Execution }) {
             Logs ({logs.length})
           </button>
           {logOpen && (
-            <div className="border-t-2 border-border max-h-80 overflow-auto bg-background p-3 font-mono text-xs leading-relaxed space-y-1">
-              {logs.map((line, i) => (
-                <LogLine key={i} line={line} />
-              ))}
-            </div>
+            <LogPanel logs={logs} autoScroll={isRunning} />
           )}
         </>
       )}

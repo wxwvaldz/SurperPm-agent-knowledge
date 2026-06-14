@@ -1,24 +1,24 @@
 import { useState } from "react";
 import { Outlet, NavLink } from "react-router-dom";
 import {
-  LayoutDashboard,
-  MessageSquare,
-  BookOpen,
+  MessagesSquare,
+  Target,
+  Lightbulb,
   Settings,
   Menu,
   X,
   LogOut,
   User,
-  PanelLeftClose,
-  PanelLeft,
+  ChevronsLeft,
+  ChevronsRight,
 } from "lucide-react";
 import { useUIStore } from "../../lib/stores/ui";
 import { useAuth } from "../../context/AuthContext";
 
 const navItems = [
-  { to: "/", icon: LayoutDashboard, label: "Goal", end: true },
-  { to: "/discuss", icon: MessageSquare, label: "Discuss" },
-  { to: "/knowledge", icon: BookOpen, label: "Learning" },
+  { to: "/", icon: MessagesSquare, label: "Discuss", end: true },
+  { to: "/goals", icon: Target, label: "Goal" },
+  { to: "/knowledge", icon: Lightbulb, label: "Learning" },
   { to: "/settings", icon: Settings, label: "Settings" },
 ];
 
@@ -122,7 +122,7 @@ function AppSidebar() {
           onClick={toggleSidebar}
           className="p-1.5 border-2 border-border bg-background hover:bg-primary hover:shadow-[2px_2px_0_0_#000] active:shadow-none transition-all text-foreground"
         >
-          {sidebarCollapsed ? <PanelLeft size={16} /> : <PanelLeftClose size={16} />}
+          {sidebarCollapsed ? <ChevronsRight size={16} /> : <ChevronsLeft size={16} />}
         </button>
       </div>
 
@@ -189,7 +189,7 @@ export function AppLayout() {
     <div className="flex flex-col md:flex-row h-screen bg-background text-foreground">
       <MobileNav />
       <AppSidebar />
-      <main className="flex-1 overflow-auto">
+      <main className="flex-1 min-h-0 min-w-0 overflow-hidden">
         <Outlet />
       </main>
     </div>

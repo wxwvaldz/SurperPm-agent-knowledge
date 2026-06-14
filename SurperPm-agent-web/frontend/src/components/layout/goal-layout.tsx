@@ -22,10 +22,11 @@ const statusLabel: Record<string, string> = {
 export function GoalLayout() {
   const { goalId: goalIdStr } = useParams<{ goalId: string }>();
   const goalId = Number(goalIdStr);
+  const valid = !!goalIdStr && !isNaN(goalId);
 
-  if (!goalIdStr || isNaN(goalId)) return <Navigate to="/" replace />;
+  const { data: goal } = useQuery({ ...goalDetailOptions(goalId), enabled: valid });
 
-  const { data: goal } = useQuery(goalDetailOptions(goalId));
+  if (!valid) return <Navigate to="/" replace />;
 
   return (
     <GoalWSProvider goalId={goalId}>
@@ -33,7 +34,7 @@ export function GoalLayout() {
         <div className="shrink-0 border-b-2 border-border bg-card px-4 py-3">
           <div className="flex items-center gap-3 mb-2">
             <NavLink
-              to="/"
+              to="/goals"
               className="p-1 border-2 border-border bg-background hover:bg-accent transition-all"
             >
               <ArrowLeft size={14} />
@@ -66,7 +67,7 @@ export function GoalLayout() {
             ))}
           </nav>
         </div>
-        <div className="flex-1 min-h-0 overflow-auto">
+        <div className="flex-1 min-h-0">
           <Outlet />
         </div>
       </div>

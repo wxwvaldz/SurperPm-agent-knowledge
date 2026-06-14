@@ -4,7 +4,7 @@ import rehypeHighlight from 'rehype-highlight'
 
 export function MarkdownContent({ content, className = '' }: { content: string; className?: string }) {
   return (
-    <div className={className}>
+    <div className={`max-w-full overflow-hidden ${className}`}>
     <ReactMarkdown
       remarkPlugins={[remarkGfm]}
       rehypePlugins={[rehypeHighlight]}
@@ -25,7 +25,11 @@ export function MarkdownContent({ content, className = '' }: { content: string; 
           if (isBlock) return <code className={cn} {...props}>{children}</code>
           return <code className="aui-md-inline-code" {...props}>{children}</code>
         },
-        table: ({ children }) => <table className="aui-md-table">{children}</table>,
+        table: ({ children }) => (
+          <div className="aui-md-table-wrap">
+            <table className="aui-md-table">{children}</table>
+          </div>
+        ),
         th: ({ children }) => <th className="aui-md-th">{children}</th>,
         td: ({ children }) => <td className="aui-md-td">{children}</td>,
         tr: ({ children }) => <tr className="aui-md-tr">{children}</tr>,

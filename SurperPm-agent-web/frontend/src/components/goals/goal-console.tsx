@@ -12,7 +12,7 @@ const THEME = {
 };
 
 function wsUrl(goalId: number): string {
-  const base = import.meta.env.VITE_WS_URL ?? "ws://localhost:8000";
+  const base = import.meta.env.VITE_WS_URL ?? `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}`;
   return `${base}/ws/goal/${goalId}/term`;
 }
 

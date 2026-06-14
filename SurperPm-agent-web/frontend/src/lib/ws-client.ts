@@ -6,9 +6,10 @@ export class WSClient {
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private reconnectDelay = 1000;
   private url: string;
+  private _closed = false;
 
   constructor(channelKey: string) {
-    const base = import.meta.env.VITE_WS_URL ?? "ws://localhost:8000";
+    const base = import.meta.env.VITE_WS_URL ?? `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}`;
     const path = channelKey.startsWith("goal:")
       ? `/ws/goal/${channelKey.slice(5)}`
       : `/ws/${channelKey}`;
@@ -17,6 +18,7 @@ export class WSClient {
   }
 
   private connect() {
+    if (this._closed) return;
     this.ws = new WebSocket(this.url);
 
     this.ws.onopen = () => {
@@ -34,6 +36,7 @@ export class WSClient {
     };
 
     this.ws.onclose = () => {
+      if (this._closed) return;
       this.reconnectTimer = setTimeout(() => this.connect(), this.reconnectDelay);
       this.reconnectDelay = Math.min(this.reconnectDelay * 2, 30000);
     };
@@ -54,6 +57,7 @@ export class WSClient {
   }
 
   close() {
+    this._closed = true;
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
     this.ws?.close();
     this.ws = null;

@@ -57,7 +57,7 @@ export function ResizableSplit({
   return (
     <div ref={containerRef} className="flex h-full w-full">
       <div
-        className={`flex flex-col min-w-0 overflow-hidden ${collapsed === "left" ? "hidden" : ""}`}
+        className={`flex flex-col min-w-0 overflow-hidden h-full ${collapsed === "left" ? "hidden" : ""}`}
         style={{ width: leftWidth }}
       >
         {left}
@@ -108,7 +108,7 @@ export function ResizableSplit({
       </div>
 
       <div
-        className={`flex-1 flex flex-col min-w-0 overflow-hidden ${collapsed === "right" ? "hidden" : ""}`}
+        className={`flex-1 flex flex-col min-w-0 overflow-hidden h-full ${collapsed === "right" ? "hidden" : ""}`}
       >
         {right}
       </div>

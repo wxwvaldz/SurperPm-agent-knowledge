@@ -1,6 +1,8 @@
-import { useState, type ChangeEvent } from "react";
+import { useCallback, useState, type ChangeEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/components/business/toast";
+import { useConfirm } from "@/components/business/confirm-dialog";
 import {
   Search, Plug, Cpu, Wrench, Plus, Trash2, RefreshCw,
   Power, PowerOff, Download, CheckCircle, AlertTriangle,
@@ -14,60 +16,14 @@ import { Badge } from "@/components/retroui/Badge";
 import { Button } from "@/components/retroui/Button";
 import { Dialog } from "@/components/retroui/Dialog";
 import { Label } from "@/components/retroui/Label";
+import { Tooltip } from "@/components/retroui/Tooltip";
 import { skillKeys, skillListOptions } from "@/lib/queries/skills";
-import { workspaceListOptions } from "@/lib/queries/workspaces";
 import { mcpListOptions, mcpKeys } from "@/lib/queries/mcp";
 import { pluginInstalledOptions, pluginMarketplaceStatusOptions, pluginKeys } from "@/lib/queries/plugins";
 import { SkillCard } from "@/components/skills/skill-card";
 import { CreateSkillDialog } from "@/components/skills/create-skill-dialog";
 
-type PluginTab = "skills" | "mcp" | "plugins";
 
-const TABS: { id: PluginTab; label: string; icon: React.ElementType }[] = [
-  { id: "skills", label: "Skills", icon: Wrench },
-  { id: "mcp", label: "MCP Servers", icon: Cpu },
-  { id: "plugins", label: "Plugins", icon: Plug },
-];
-
-export default function PluginsPage() {
-  const [activeTab, setActiveTab] = useState<PluginTab>("skills");
-  const { data: workspaces = [] } = useQuery(workspaceListOptions());
-  const wsId = workspaces[0]?.id ?? "";
-
-  return (
-    <div className="flex flex-col h-full p-6 overflow-auto">
-      <Text as="h2" className="text-2xl mb-6">
-        Plugins
-      </Text>
-
-      <div className="flex gap-2 mb-6">
-        {TABS.map((tab) => {
-          const Icon = tab.icon;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-2 transition-all ${
-                activeTab === tab.id
-                  ? "border-border bg-primary shadow-[3px_3px_0_0_#000] text-foreground"
-                  : "border-border bg-background text-muted-foreground hover:bg-muted hover:shadow-[2px_2px_0_0_#000]"
-              }`}
-            >
-              <Icon size={14} />
-              {tab.label}
-            </button>
-          );
-        })}
-      </div>
-
-      <div className="flex-1 min-h-0">
-        {activeTab === "skills" && <SkillsTab workspaceId={wsId} />}
-        {activeTab === "mcp" && <MCPTab workspaceId={wsId} />}
-        {activeTab === "plugins" && <PluginsTab />}
-      </div>
-    </div>
-  );
-}
 
 export function SkillsTab({ workspaceId }: { workspaceId: string }) {
   const navigate = useNavigate();
@@ -93,7 +49,7 @@ export function SkillsTab({ workspaceId }: { workspaceId: string }) {
       <div className="flex-1 min-h-0 overflow-auto">
         <SkillsGrid
           workspaceId={workspaceId}
-          onSelect={(id) => navigate(`/skills/${id}`)}
+          onSelect={(slug) => navigate(`/skills/${slug}`)}
         />
       </div>
     </div>
@@ -105,21 +61,25 @@ function SkillsGrid({
   onSelect,
 }: {
   workspaceId: string;
-  onSelect: (id: number) => void;
+  onSelect: (slug: string) => void;
 }) {
   const queryClient = useQueryClient();
   const { data: skills, isLoading } = useQuery(skillListOptions(workspaceId));
+  const { confirm } = useConfirm();
 
   const deleteMutation = useMutation({
-    mutationFn: (id: number) => api.delete(`/workspaces/${workspaceId}/skills/${id}`),
+    mutationFn: (slug: string) =>
+      api.delete(`/workspaces/${workspaceId}/skills/${slug}`),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: skillKeys.list(workspaceId) });
+      queryClient.invalidateQueries({
+        queryKey: skillKeys.list(workspaceId),
+      });
     },
   });
 
-  function handleDelete(skill: { id: number; name: string }) {
-    if (confirm(`确定要删除 "${skill.name}"？`)) {
-      deleteMutation.mutate(skill.id);
+  async function handleDelete(skill: { slug: string; name: string }) {
+    if (await confirm({ message: `确定要删除 "${skill.name}"？`, confirmLabel: "删除" })) {
+      deleteMutation.mutate(skill.slug);
     }
   }
 
@@ -143,7 +103,7 @@ function SkillsGrid({
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       {skills.map((skill) => (
-        <SkillCard key={skill.id} skill={skill} onClick={() => onSelect(skill.id)} onDelete={handleDelete} />
+        <SkillCard key={skill.slug} skill={skill} onClick={() => onSelect(skill.slug)} onDelete={handleDelete} />
       ))}
     </div>
   );
@@ -154,10 +114,11 @@ function SkillsGrid({
 export function MCPTab({ workspaceId }: { workspaceId: string }) {
   const queryClient = useQueryClient();
   const [addOpen, setAddOpen] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [testResults, setTestResults] = useState<Record<number, { ok: boolean; error?: string; status?: number; stdout?: string }>>({});
+  const [editingName, setEditingName] = useState<string | null>(null);
+  const [testResults, setTestResults] = useState<Record<string, { ok: boolean; error?: string; status?: number }>>({});
   const [jsonText, setJsonText] = useState("");
   const [jsonError, setJsonError] = useState<string | null>(null);
+  const { confirm: mcpConfirm } = useConfirm();
 
   const { data: servers = [], isLoading } = useQuery(mcpListOptions(workspaceId));
 
@@ -175,10 +136,10 @@ export function MCPTab({ workspaceId }: { workspaceId: string }) {
   });
 
   const updateJsonMutation = useMutation({
-    mutationFn: (id: number) => api.put(`/workspaces/${workspaceId}/mcp/servers/${id}/import`, { json_text: jsonText }),
+    mutationFn: (name: string) => api.patch(`/workspaces/${workspaceId}/mcp/servers/${name}`, { json_text: jsonText }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: mcpKeys.list(workspaceId) });
-      setEditingId(null);
+      setEditingName(null);
       setJsonText("");
       setJsonError(null);
     },
@@ -186,8 +147,8 @@ export function MCPTab({ workspaceId }: { workspaceId: string }) {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: number) =>
-      api.delete(`/workspaces/${workspaceId}/mcp/servers/${id}`),
+    mutationFn: (name: string) =>
+      api.delete(`/workspaces/${workspaceId}/mcp/servers/${name}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: mcpKeys.list(workspaceId) });
     },
@@ -204,8 +165,8 @@ export function MCPTab({ workspaceId }: { workspaceId: string }) {
   });
 
   const toggleMutation = useMutation({
-    mutationFn: ({ id, enabled }: { id: number; enabled: boolean }) =>
-      api.put(`/workspaces/${workspaceId}/mcp/servers/${id}`, { enabled }),
+    mutationFn: ({ name, enabled }: { name: string; enabled: boolean }) =>
+      api.patch(`/workspaces/${workspaceId}/mcp/servers/${name}`, { enabled }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: mcpKeys.list(workspaceId) });
     },
@@ -237,36 +198,24 @@ export function MCPTab({ workspaceId }: { workspaceId: string }) {
   }
 
   function openAdd() {
-    setEditingId(null);
+    setEditingName(null);
     setJsonText("");
     setJsonError(null);
     setAddOpen(true);
   }
 
-  function openEdit(srv: {
-    id: number | null;
-    name: string;
-    transport: string;
-    command: string | null;
-    args: string | null;
-    env: string | null;
-    url: string | null;
-    headers: string | null;
-    enabled: boolean;
-  }) {
-    if (srv.id == null) return;
-    setEditingId(srv.id);
+  function openEdit(srv: { name: string; transport: string; command: string | null; args: any; env: any; url: string | null; headers: any; enabled: boolean }) {
+    setEditingName(srv.name);
     setJsonText(serverToJson(srv));
     setJsonError(null);
   }
 
-  async function testConnection(id: number | null) {
-    if (id == null) return;
+  async function testConnection(srvName: string) {
     try {
-      const res = await api.post(`/workspaces/${workspaceId}/mcp/servers/${id}/test`) as { ok: boolean; error?: string; status?: number; stdout?: string };
-      setTestResults((prev) => ({ ...prev, [id]: res }));
+      const res = await api.post(`/workspaces/${workspaceId}/mcp/servers/${srvName}/test`) as { ok: boolean; error?: string; status?: number };
+      setTestResults((prev) => ({ ...prev, [srvName]: res }));
     } catch {
-      setTestResults((prev) => ({ ...prev, [id]: { ok: false, error: "Request failed" } }));
+      setTestResults((prev) => ({ ...prev, [srvName]: { ok: false, error: "Request failed" } }));
     }
   }
 
@@ -320,12 +269,11 @@ export function MCPTab({ workspaceId }: { workspaceId: string }) {
       ) : (
         <div className="space-y-3 flex-1 overflow-auto">
           {servers.map((srv) => {
-            const testR = srv.id != null ? testResults[srv.id] : null;
+            const testR = testResults[srv.name] ?? null;
             const isDiscovered = !!srv.plugin_source;
-            const hasId = srv.id != null;
             return (
               <div
-                key={srv.id ?? srv.name}
+                key={srv.name}
                 className="border-2 border-border bg-card p-4"
               >
                 <div className="flex items-start justify-between">
@@ -353,18 +301,16 @@ export function MCPTab({ workspaceId }: { workspaceId: string }) {
                     </div>
                   </div>
                   <div className="flex items-center gap-1 shrink-0 ml-2">
-                    {hasId && (
-                      <>
                         <Button
                           variant="ghost" size="sm"
-                          onClick={() => toggleMutation.mutate({ id: srv.id!, enabled: !srv.enabled })}
+                          onClick={() => toggleMutation.mutate({ name: srv.name, enabled: !srv.enabled })}
                           title={srv.enabled ? "禁用" : "启用"}
                         >
                           {srv.enabled ? <PowerOff size={14} /> : <Power size={14} />}
                         </Button>
                         <Button
                           variant="ghost" size="sm"
-                          onClick={() => testConnection(srv.id!)}
+                          onClick={() => testConnection(srv.name)}
                           title="测试连接"
                         >
                           <RefreshCw size={14} />
@@ -376,21 +322,19 @@ export function MCPTab({ workspaceId }: { workspaceId: string }) {
                             </Button>
                             <Button
                               variant="ghost" size="sm"
-                              onClick={() => { if (confirm(`删除 ${srv.name}？`)) deleteMutation.mutate(srv.id!); }}
+                              onClick={async () => { if (await mcpConfirm({ message: `删除 ${srv.name}？`, confirmLabel: "删除" })) deleteMutation.mutate(srv.name); }}
                               title="删除"
                             >
                               <Trash2 size={14} />
                             </Button>
                           </>
                         )}
-                      </>
-                    )}
                   </div>
                 </div>
                 {testR && (
                   <div className={`mt-2 text-xs p-2 border ${testR.ok ? "border-green-600 bg-green-50 text-green-800" : "border-destructive bg-red-50 text-destructive"}`}>
                     {testR.ok
-                      ? `✅ 连接成功${testR.status != null ? ` (HTTP ${testR.status})` : ""}${testR.stdout ? `: ${testR.stdout.slice(0, 100)}` : ""}`
+                      ? `✅ 连接成功${testR.status != null ? ` (HTTP ${testR.status})` : ""}`
                       : `❌ 连接失败: ${testR.error}`}
                   </div>
                 )}
@@ -401,11 +345,11 @@ export function MCPTab({ workspaceId }: { workspaceId: string }) {
       )}
 
       {/* Add / Edit Dialog — JSON only */}
-      <Dialog open={addOpen || editingId != null} onOpenChange={(v) => { if (!v) { setAddOpen(false); setEditingId(null); setJsonText(""); setJsonError(null); } }}>
+      <Dialog open={addOpen || editingName != null} onOpenChange={(v) => { if (!v) { setAddOpen(false); setEditingName(null); setJsonText(""); setJsonError(null); } }}>
         <Dialog.Content size="md">
           <Dialog.Header>
             <Text as="h3" className="text-base font-bold">
-              {editingId != null ? "编辑 MCP Server" : "添加 MCP Server"}
+              {editingName != null ? "编辑 MCP Server" : "添加 MCP Server"}
             </Text>
           </Dialog.Header>
 
@@ -430,21 +374,21 @@ export function MCPTab({ workspaceId }: { workspaceId: string }) {
           </div>
 
           <Dialog.Footer>
-            <Button variant="outline" onClick={() => { setAddOpen(false); setEditingId(null); setJsonText(""); setJsonError(null); }}>
+            <Button variant="outline" onClick={() => { setAddOpen(false); setEditingName(null); setJsonText(""); setJsonError(null); }}>
               取消
             </Button>
             <Button
               onClick={() => {
                 if (!jsonText.trim()) { setJsonError("请输入 JSON 配置"); return; }
-                if (editingId != null) {
-                  updateJsonMutation.mutate(editingId);
+                if (editingName != null) {
+                  updateJsonMutation.mutate(editingName);
                 } else {
                   importMutation.mutate();
                 }
               }}
               disabled={!jsonText.trim() || importMutation.isPending || updateJsonMutation.isPending}
             >
-              {importMutation.isPending || updateJsonMutation.isPending ? "保存中..." : editingId != null ? "更新" : "导入"}
+              {importMutation.isPending || updateJsonMutation.isPending ? "保存中..." : editingName != null ? "更新" : "导入"}
             </Button>
           </Dialog.Footer>
         </Dialog.Content>
@@ -460,6 +404,8 @@ type PluginSubTab = "installed" | "marketplace";
 export function PluginsTab() {
   const [subTab, setSubTab] = useState<PluginSubTab>("installed");
   const queryClient = useQueryClient();
+  const { confirm } = useConfirm();
+  const { toast } = useToast();
 
   // ── Installed ────────────────────────────────────────────────
 
@@ -508,11 +454,23 @@ export function PluginsTab() {
     },
   });
 
-  const mktInstallMutation = useMutation({
-    mutationFn: (name: string) => api.post(`/plugins/marketplace/install/${name}`),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: pluginKeys.all() }),
-    onError: (e: Error) => alert(`安装失败: ${e.message}`),
-  });
+  // Per-plugin install tracking — supports concurrent installs
+  const [installingSet, setInstallingSet] = useState<Set<string>>(new Set());
+
+  const installPlugin = useCallback((name: string) => {
+    setInstallingSet((prev) => new Set(prev).add(name));
+    api.post(`/plugins/marketplace/install/${name}`)
+      .then(() => {
+        queryClient.invalidateQueries({ queryKey: pluginKeys.all() });
+        toast(`${name} 安装成功`, "success");
+      })
+      .catch((e: Error) => {
+        toast(`${name} 安装失败: ${e.message}`, "error");
+      })
+      .finally(() => {
+        setInstallingSet((prev) => { const s = new Set(prev); s.delete(name); return s; });
+      });
+  }, [queryClient, toast]);
 
   // ── Plugin import state & dialog ────────────────────────────
 
@@ -584,7 +542,7 @@ export function PluginsTab() {
               {installed.map((p) => (
                 <div key={p.name} className="border-2 border-border bg-card p-4">
                   <div className="flex items-start justify-between">
-                    <div className="min-w-0">
+                    <div className="min-w-0 overflow-hidden">
                       <div className="flex items-center gap-2">
                         <p className="text-sm font-medium">{p.name}</p>
                         <Badge variant="surface" size="sm">v{p.version}</Badge>
@@ -599,7 +557,7 @@ export function PluginsTab() {
                         </p>
                       )}
                       {p.source_url && (
-                        <p className="text-xs text-muted-foreground mt-1 font-mono truncate">{p.source_url}</p>
+                        <a href={p.source_url} target="_blank" rel="noopener noreferrer" className="text-xs text-muted-foreground mt-1 font-mono truncate block hover:text-foreground hover:underline">{p.source_url}</a>
                       )}
                       <div className="flex gap-2 mt-2">
                         {p.commands.length > 0 && (
@@ -627,7 +585,7 @@ export function PluginsTab() {
                       </Button>
                       <Button
                         variant="ghost" size="sm"
-                        onClick={() => { if (confirm(`确定要卸载 ${p.name}？`)) uninstallMutation.mutate(p.name); }}
+                        onClick={async () => { if (await confirm({ message: `确定要卸载 ${p.name}？`, confirmLabel: "卸载" })) uninstallMutation.mutate(p.name); }}
                         title="卸载"
                       >
                         <Trash2 size={14} />
@@ -726,7 +684,7 @@ export function PluginsTab() {
                 <div className="flex gap-2 shrink-0">
                   <Button
                     variant="outline" size="sm"
-                    onClick={() => { if (confirm("确定要移除市场仓库？")) mktRemoveMutation.mutate(); }}
+                    onClick={async () => { if (await confirm({ message: "确定要移除市场仓库？", confirmLabel: "移除" })) mktRemoveMutation.mutate(); }}
                   >
                     <Trash2 size={14} className="mr-1" />
                     移除
@@ -764,11 +722,10 @@ export function PluginsTab() {
                     .map((p) => (
                       <div key={p.name} className="border-2 border-border bg-card p-4">
                         <div className="flex items-start justify-between">
-                          <div className="min-w-0">
+                          <div className="min-w-0 overflow-hidden">
                             <div className="flex items-center gap-2">
                               <p className="text-sm font-medium">{p.name}</p>
                               <Badge variant="surface" size="sm">v{p.version}</Badge>
-                              {p.installed && <Badge variant="default" size="sm">已安装</Badge>}
                             </div>
                             {p.description && (
                               <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
@@ -779,7 +736,12 @@ export function PluginsTab() {
                               <p className="text-xs text-muted-foreground mt-1">作者: {p.author}</p>
                             )}
                             {p.source_url && (
-                              <p className="text-xs text-muted-foreground mt-1 font-mono truncate">{p.source_url}</p>
+                              <Tooltip>
+                                <Tooltip.Trigger asChild>
+                                  <a href={p.source_url} target="_blank" rel="noopener noreferrer" className="text-xs text-muted-foreground mt-1 font-mono truncate block text-left hover:text-foreground hover:underline cursor-pointer">{p.source_url}</a>
+                                </Tooltip.Trigger>
+                                <Tooltip.Content variant="solid" className="max-w-xs break-all">{p.source_url}</Tooltip.Content>
+                              </Tooltip>
                             )}
                             <div className="flex gap-2 mt-2">
                               {p.skills.length > 0 && (
@@ -789,18 +751,24 @@ export function PluginsTab() {
                           </div>
                           <div className="shrink-0 ml-2">
                             {p.installed ? (
-                              <Badge variant="default" size="sm">
+                              <Badge size="sm" className="bg-green-600 text-white">
                                 <CheckCircle size={12} className="mr-1 inline" />已安装
                               </Badge>
                             ) : (
-                              <Button
-                                size="sm"
-                                onClick={() => mktInstallMutation.mutate(p.name)}
-                                disabled={mktInstallMutation.isPending}
-                              >
-                                <Download size={14} className="mr-1" />
-                                安装
-                              </Button>
+                              <div className="flex flex-col items-end gap-1">
+                                <Button
+                                  size="sm"
+                                  onClick={() => installPlugin(p.name)}
+                                  disabled={installingSet.has(p.name)}
+                                >
+                                  {installingSet.has(p.name) ? (
+                                    <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-foreground border-t-transparent mr-1" />
+                                  ) : (
+                                    <Download size={14} className="mr-1" />
+                                  )}
+                                  {installingSet.has(p.name) ? "安装中..." : "安装"}
+                                </Button>
+                              </div>
                             )}
                           </div>
                         </div>

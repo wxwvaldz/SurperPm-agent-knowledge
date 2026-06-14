@@ -24,18 +24,6 @@ interface TeamProfile {
 
 type ViewMode = "team" | "personal";
 
-export default function TeamPage() {
-
-  return (
-    <div className="flex flex-col h-full p-6 overflow-auto">
-      <Text as="h2" className="text-2xl mb-6">
-        Team
-      </Text>
-      <TeamContent />
-    </div>
-  );
-}
-
 export function TeamContent() {
   const [view, setView] = useState<ViewMode>("team");
   const {

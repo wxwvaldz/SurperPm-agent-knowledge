@@ -13,11 +13,10 @@ import { Textarea } from "@/components/retroui/Textarea";
 export default function GoalSettingsPage() {
   const { goalId: goalIdStr } = useParams<{ goalId: string }>();
   const goalId = Number(goalIdStr);
+  const valid = !!goalIdStr && !isNaN(goalId);
   const queryClient = useQueryClient();
 
-  if (!goalIdStr || isNaN(goalId)) return null;
-
-  const { data: goal } = useQuery(goalDetailOptions(goalId));
+  const { data: goal } = useQuery({ ...goalDetailOptions(goalId), enabled: valid });
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -43,10 +42,16 @@ export default function GoalSettingsPage() {
     updateMutation.mutate({ title: title.trim(), description: description.trim() });
   };
 
-  const repos: string[] = goal?.repos ? JSON.parse(goal.repos) : [];
+  const repos: string[] = (() => {
+    try { return goal?.repos ? JSON.parse(goal.repos) : []; }
+    catch { return []; }
+  })();
+
+  if (!valid) return null;
 
   return (
-    <div className="p-6 space-y-6 max-w-lg">
+    <div className="flex flex-col h-full p-6 overflow-auto">
+    <div className="space-y-6 max-w-lg">
       <Card>
         <Card.Header>
           <Card.Title>Goal Info</Card.Title>
@@ -93,6 +98,7 @@ export default function GoalSettingsPage() {
       </Card>
 
       <GoalReposCard goalId={goalId} repos={repos} />
+    </div>
     </div>
   );
 }

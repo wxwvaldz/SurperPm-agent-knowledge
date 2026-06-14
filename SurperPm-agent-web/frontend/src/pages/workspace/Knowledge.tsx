@@ -6,12 +6,10 @@ import { Text } from "@/components/retroui/Text";
 import { Button } from "@/components/retroui/Button";
 import { Input } from "@/components/retroui/Input";
 import { Textarea } from "@/components/retroui/Textarea";
-import { Dialog } from "@/components/retroui/Dialog";
 import { MarkdownContent } from "@/components/business/markdown-content";
 import { Empty } from "@/components/retroui/Empty";
 import { LearningRecords } from "@/pages/Learning";
 import {
-  BookMarked,
   BookOpen,
   FileText,
   Folder,
@@ -22,7 +20,6 @@ import {
   Save,
   Inbox,
   Sparkles,
-  RefreshCw,
 } from "lucide-react";
 
 interface TreeNode {
@@ -48,40 +45,45 @@ function matchesSearch(node: TreeNode, term: string): boolean {
 export default function KnowledgePage() {
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [learningOpen, setLearningOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<"knowledge" | "learning">("knowledge");
 
   return (
     <div className="flex flex-col h-full">
-      {/* header */}
-      <div className="flex items-center gap-3 px-6 py-5 border-b-2 border-border bg-card/50">
-        <div className="w-11 h-11 border-2 border-border bg-primary flex items-center justify-center shadow-[3px_3px_0_0_#000]">
-          <BookMarked size={22} />
+      <div className="flex items-center gap-3 px-6 py-5 border-b-2 border-border bg-card/50 shrink-0">
+        <Text as="h2" className="text-2xl">Learning</Text>
+        <div className="flex-1" />
+        <div className="flex border-2 border-border">
+          <button
+            onClick={() => setActiveTab("knowledge")}
+            className={`px-3 py-1 text-xs font-medium transition-colors ${
+              activeTab === "knowledge"
+                ? "bg-primary text-foreground"
+                : "bg-background text-muted-foreground hover:bg-muted"
+            }`}
+          >
+            <BookOpen size={12} className="inline mr-1" />
+            Knowledge
+          </button>
+          <button
+            onClick={() => setActiveTab("learning")}
+            className={`px-3 py-1 text-xs font-medium border-l-2 border-border transition-colors ${
+              activeTab === "learning"
+                ? "bg-primary text-foreground"
+                : "bg-background text-muted-foreground hover:bg-muted"
+            }`}
+          >
+            <Sparkles size={12} className="inline mr-1" />
+            Learning
+          </button>
         </div>
-        <Text as="h2" className="text-2xl">Knowledge Base</Text>
-        <Button
-          variant="outline"
-          className="ml-auto"
-          onClick={() => setLearningOpen(true)}
-        >
-          <Sparkles size={14} />
-          Learning 记录
-        </Button>
       </div>
 
-      <Dialog open={learningOpen} onOpenChange={setLearningOpen}>
-        <Dialog.Content size="3xl" className="max-h-[85vh] overflow-hidden flex flex-col">
-          <Dialog.Header>
-            <Text as="h3" className="text-base">Learning 记录</Text>
-          </Dialog.Header>
-          <div className="flex-1 overflow-auto px-1 py-2 space-y-4">
-            <KnowledgeSyncBar />
-            <LearningRecords />
-          </div>
-        </Dialog.Content>
-      </Dialog>
-
+      {activeTab === "learning" ? (
+        <div className="flex-1 overflow-auto p-6">
+          <LearningRecords />
+        </div>
+      ) : (
       <div className="flex flex-1 min-h-0">
-        {/* sidebar */}
         <aside className="w-72 border-r-2 border-border overflow-y-auto p-4 bg-card nb-scrollbar">
           <p className="text-xs font-head font-bold uppercase tracking-wider text-muted-foreground mb-3">
             文件目录
@@ -112,7 +114,7 @@ export default function KnowledgePage() {
         </aside>
 
         {/* main content */}
-        <main className="flex-1 overflow-auto p-6">
+        <main className="flex-1 overflow-hidden p-6">
           {selectedPath ? (
             <FileContent path={selectedPath} />
           ) : (
@@ -131,47 +133,7 @@ export default function KnowledgePage() {
           )}
         </main>
       </div>
-    </div>
-  );
-}
-
-function KnowledgeSyncBar() {
-  const queryClient = useQueryClient();
-  const syncMutation = useMutation({
-    mutationFn: () => api.post<{ ok: boolean }>("/knowledge/sync"),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["knowledge-tree"] });
-    },
-  });
-
-  return (
-    <div className="border-2 border-border bg-muted/20 p-3 flex items-center gap-3">
-      <div className="flex-1">
-        <p className="text-sm font-head font-bold">知识库同步</p>
-        <p className="text-xs text-muted-foreground">
-          绑定仓库的只读镜像，每 5 分钟自动拉取。可在此手动触发一次同步。
-        </p>
-        {syncMutation.isError && (
-          <p className="text-xs text-destructive mt-1">
-            同步失败: {(syncMutation.error as Error).message}
-          </p>
-        )}
-        {syncMutation.isSuccess && (
-          <p className="text-xs text-muted-foreground mt-1">已同步。</p>
-        )}
-      </div>
-      <Button
-        size="sm"
-        variant="outline"
-        onClick={() => syncMutation.mutate()}
-        disabled={syncMutation.isPending}
-      >
-        <RefreshCw
-          size={14}
-          className={syncMutation.isPending ? "animate-spin" : ""}
-        />
-        {syncMutation.isPending ? "同步中..." : "立即同步"}
-      </Button>
+      )}
     </div>
   );
 }
@@ -398,7 +360,7 @@ function FileContent({ path }: { path: string }) {
   };
 
   return (
-    <div className="max-w-4xl space-y-3">
+    <div className="max-w-4xl space-y-3 flex flex-col h-full min-h-0">
       {/* breadcrumb & actions */}
       <div className="flex items-center gap-2 pb-3 border-b-2 border-border">
         <FileText size={16} className="text-muted-foreground shrink-0" />
@@ -447,15 +409,15 @@ function FileContent({ path }: { path: string }) {
           onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
             setEditContent(e.target.value)
           }
-          className="font-mono text-sm min-h-[calc(100vh-300px)]"
+          className="font-mono text-sm flex-1 min-h-0"
           rows={20}
         />
       ) : isMarkdown ? (
-        <div className="border-2 border-border bg-white p-6 overflow-auto max-h-[calc(100vh-280px)] shadow-[4px_4px_0_0_rgba(0,0,0,0.08)]">
+        <div className="border-2 border-border bg-white p-6 overflow-auto flex-1 min-h-0 shadow-[4px_4px_0_0_rgba(0,0,0,0.08)]">
           <MarkdownContent content={content} />
         </div>
       ) : (
-        <pre className="aui-md-pre overflow-auto max-h-[calc(100vh-280px)] shadow-[4px_4px_0_0_rgba(0,0,0,0.08)]">
+        <pre className="aui-md-pre overflow-auto flex-1 min-h-0 shadow-[4px_4px_0_0_rgba(0,0,0,0.08)]">
           <code>{content}</code>
         </pre>
       )}

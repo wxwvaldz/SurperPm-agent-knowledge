@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Check, Hash, Coins, User, GitBranch, Sparkles } from "lucide-react";
+import { Plus, Check, Hash, Coins, User, GitBranch, Sparkles, Calendar } from "lucide-react";
 import { api } from "../../lib/api";
 import { goalKeys } from "../../lib/queries/goals";
 import {
@@ -36,14 +36,23 @@ function SectionLabel({ icon: Icon, children }: { icon: typeof Hash; children: R
   );
 }
 
-export function CreateGoalDialog() {
+export function CreateGoalDialog({
+  defaultGroupId,
+}: {
+  defaultGroupId?: number;
+}) {
   const [open, setOpen] = useState(false);
-  const [title, setTitle] = useState("");
+  const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+  const [title, setTitle] = useState(today + " ");
   const [description, setDescription] = useState("");
+  const [deadline, setDeadline] = useState(new Date().toISOString().split("T")[0]);
   const [tokenBudget, setTokenBudget] = useState("");
   const [assignedTo, setAssignedTo] = useState("");
   const [selectedRepos, setSelectedRepos] = useState<string[]>([]);
   const [newRepoUrl, setNewRepoUrl] = useState("");
+  const [schedule, setSchedule] = useState("");
+  const [delayMinutes, setDelayMinutes] = useState("");
+  const [target, setTarget] = useState("");
   const queryClient = useQueryClient();
   const { data: workspaces = [] } = useQuery(workspaceListOptions());
   const defaultWsId = workspaces[0]?.id ?? "";
@@ -86,18 +95,29 @@ export function CreateGoalDialog() {
         workspace_id: defaultWsId,
         title,
         description: description || null,
+        ...(defaultGroupId != null ? { group_id: defaultGroupId } : {}),
+        ...(deadline ? { deadline } : {}),
         ...(tokenBudget ? { token_budget: parseInt(tokenBudget, 10) } : {}),
         ...(assignedTo.trim() ? { assigned_to: assignedTo.trim() } : {}),
         ...(selectedRepos.length ? { repos: JSON.stringify(selectedRepos) } : {}),
+        ...(schedule ? { schedule } : {}),
+        ...(delayMinutes ? {
+          delay_until: new Date(Date.now() + parseInt(delayMinutes, 10) * 60000).toISOString(),
+        } : {}),
+        ...(target ? { target } : {}),
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: goalKeys.all() });
-      setTitle("");
+      setTitle(new Date().toISOString().slice(0, 10).replace(/-/g, "") + " ");
       setDescription("");
+      setDeadline(new Date().toISOString().split("T")[0]);
       setTokenBudget("");
       setAssignedTo("");
       setSelectedRepos([]);
       setNewRepoUrl("");
+      setSchedule("");
+      setDelayMinutes("");
+      setTarget("");
       setOpen(false);
     },
   });
@@ -150,8 +170,17 @@ export function CreateGoalDialog() {
               </div>
             </div>
 
-            {/* ── Budget & Assignee ── */}
-            <div className="grid grid-cols-2 divide-x-2 divide-border">
+            {/* ── Deadline, Budget & Assignee ── */}
+            <div className="grid grid-cols-3 divide-x-2 divide-border">
+              <div className="p-5 space-y-1.5">
+                <SectionLabel icon={Calendar}>Deadline</SectionLabel>
+                <Input
+                  id="goal-deadline"
+                  type="date"
+                  value={deadline}
+                  onChange={(e) => setDeadline(e.target.value)}
+                />
+              </div>
               <div className="p-5 space-y-1.5">
                 <SectionLabel icon={Coins}>Token Budget</SectionLabel>
                 <Input
@@ -182,6 +211,44 @@ export function CreateGoalDialog() {
                   </Select.Content>
                 </Select>
               </div>
+            </div>
+
+            {/* ── Schedule & Delay ── */}
+            <div className="grid grid-cols-2 divide-x-2 divide-border">
+              <div className="p-5 space-y-1.5">
+                <SectionLabel icon={Calendar}>定时执行 (小时间隔)</SectionLabel>
+                <Input
+                  type="number"
+                  value={schedule}
+                  onChange={(e) => setSchedule(e.target.value)}
+                  placeholder="如 24 = 每24小时"
+                  min="0"
+                />
+              </div>
+              <div className="p-5 space-y-1.5">
+                <SectionLabel icon={Calendar}>延迟执行 (分钟)</SectionLabel>
+                <Input
+                  type="number"
+                  value={delayMinutes}
+                  onChange={(e) => setDelayMinutes(e.target.value)}
+                  placeholder="如 30 = 30分钟后执行"
+                  min="0"
+                />
+              </div>
+            </div>
+
+            {/* ── Target ── */}
+            <div className="p-5 space-y-1.5">
+              <SectionLabel icon={GitBranch}>执行资源</SectionLabel>
+              <Input
+                type="text"
+                value={target}
+                onChange={(e) => setTarget(e.target.value)}
+                placeholder="留空=本机，或输入已注册 Agent 名称"
+              />
+              <p className="text-[10px] text-muted-foreground">
+                在 Settings → Agents 中注册远程 Agent
+              </p>
             </div>
 
             {/* ── Repos ── */}

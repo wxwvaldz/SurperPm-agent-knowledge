@@ -35,7 +35,7 @@ export function CreateSkillDialog({ workspaceId }: CreateSkillDialogProps) {
       await api.post(`/workspaces/${workspaceId}/skills`, {
         name,
         description: description || null,
-        skill_md_content: skillMd || null,
+        content: skillMd || "",
       });
     },
     onSuccess: () => {
