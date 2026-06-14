@@ -23,7 +23,7 @@ function SkeletonColumn() {
       </div>
       <div className="p-2 space-y-2">
         {[1, 2].map((i) => (
-          <div key={i} className="border-2 border-border bg-card p-3 space-y-2 animate-pulse shadow-[3px_3px_0_0_#000]">
+          <div key={i} className="border border-border bg-card p-2.5 space-y-2 animate-pulse">
             <div className="flex gap-2">
               <div className="h-4 w-4 bg-accent shrink-0" />
               <div className="flex-1 space-y-1.5">

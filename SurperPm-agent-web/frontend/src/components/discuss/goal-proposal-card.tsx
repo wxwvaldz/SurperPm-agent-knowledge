@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Target, Calendar, Check, Loader2 } from "lucide-react";
 import { api } from "@/lib/api";
@@ -10,6 +10,8 @@ export interface GoalProposal {
   title: string;
   description?: string;
   deadline?: string;
+  schedule?: string;
+  delay_minutes?: number;
 }
 
 export function parseGoalProposals(content: string): { text: string; proposals: GoalProposal[] } {
@@ -24,9 +26,33 @@ export function parseGoalProposals(content: string): { text: string; proposals: 
   return { text: text.trim(), proposals };
 }
 
+const STATUS_LABELS: Record<string, { label: string; color: string }> = {
+  todo: { label: "Todo", color: "text-muted-foreground" },
+  doing: { label: "Executing...", color: "text-blue-600" },
+  review: { label: "Review", color: "text-amber-600" },
+  done: { label: "Done", color: "text-green-600" },
+  failed: { label: "Failed", color: "text-red-600" },
+};
+
 function GoalProposalItem({ proposal, workspaceId }: { proposal: GoalProposal; workspaceId: string }) {
-  const [created, setCreated] = useState(false);
+  const [goalId, setGoalId] = useState<number | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
   const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (!goalId) return;
+    const interval = setInterval(async () => {
+      try {
+        const g = await api.get<{ status: string }>(`/goals/${goalId}`);
+        setStatus(g.status);
+        if (g.status === "done" || g.status === "failed") {
+          clearInterval(interval);
+          queryClient.invalidateQueries({ queryKey: goalKeys.all() });
+        }
+      } catch { /* ignore */ }
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [goalId, queryClient]);
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -35,47 +61,55 @@ function GoalProposalItem({ proposal, workspaceId }: { proposal: GoalProposal; w
         title: proposal.title,
         description: proposal.description || null,
         ...(proposal.deadline ? { deadline: proposal.deadline } : {}),
+        ...(proposal.schedule ? { schedule: proposal.schedule } : {}),
+        ...(proposal.delay_minutes ? {
+          delay_until: new Date(Date.now() + proposal.delay_minutes * 60000).toISOString(),
+        } : {}),
       });
+      setGoalId(goal.id);
+      setStatus("todo");
       try {
         await api.post(`/goals/${goal.id}/execute`);
-      } catch {
-        // execute may fail if no repo — still count as created
-      }
+        setStatus("doing");
+      } catch { /* execute may fail if no repo */ }
       return goal;
     },
     onSuccess: () => {
-      setCreated(true);
       queryClient.invalidateQueries({ queryKey: goalKeys.all() });
     },
   });
 
+  const statusInfo = status ? STATUS_LABELS[status] ?? { label: status, color: "text-muted-foreground" } : null;
+
   return (
-    <div className="flex items-start gap-3 border-2 border-border bg-card p-3 shadow-[2px_2px_0_0_#000]">
-      <Target size={16} className="mt-0.5 shrink-0 text-foreground/60" />
+    <div className="flex items-start gap-2.5 border border-border bg-card p-2.5">
+      <Target size={14} className="mt-0.5 shrink-0 text-foreground/60" />
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium">{proposal.title}</p>
+        <p className="text-xs font-medium">{proposal.title}</p>
         {proposal.description && (
-          <p className="text-xs text-muted-foreground mt-0.5">{proposal.description}</p>
+          <p className="text-[10px] text-muted-foreground mt-0.5">{proposal.description}</p>
         )}
         {proposal.deadline && (
-          <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
-            <Calendar size={10} />
+          <div className="flex items-center gap-1 mt-0.5 text-[10px] text-muted-foreground">
+            <Calendar size={9} />
             <span>{proposal.deadline}</span>
           </div>
         )}
       </div>
-      {created ? (
-        <span className="flex items-center gap-1 text-xs text-green-600 font-medium shrink-0">
-          <Check size={12} /> 已创建
+      {statusInfo ? (
+        <span className={`flex items-center gap-1 text-[10px] font-medium shrink-0 ${statusInfo.color}`}>
+          {status === "doing" && <Loader2 size={10} className="animate-spin" />}
+          {status === "done" && <Check size={10} />}
+          {statusInfo.label}
         </span>
       ) : (
         <Button
           size="sm"
           onClick={() => mutation.mutate()}
           disabled={mutation.isPending}
-          className="shrink-0 text-xs"
+          className="shrink-0 text-[10px] h-6 px-2"
         >
-          {mutation.isPending ? <Loader2 size={12} className="animate-spin" /> : "创建并执行"}
+          {mutation.isPending ? <Loader2 size={10} className="animate-spin" /> : "Create & Run"}
         </Button>
       )}
     </div>
@@ -108,24 +142,24 @@ export function GoalProposalCards({ proposals }: { proposals: GoalProposal[] }) 
   if (!workspaceId || proposals.length === 0) return null;
 
   return (
-    <div className="mt-2 space-y-2">
+    <div className="mt-1.5 space-y-1.5">
       {proposals.map((p, idx) => (
         <GoalProposalItem key={idx} proposal={p} workspaceId={workspaceId} />
       ))}
       {proposals.length > 1 && (
         <div className="flex justify-end">
           {allCreated ? (
-            <span className="text-xs text-green-600 font-medium flex items-center gap-1">
-              <Check size={12} /> 全部已创建
+            <span className="text-[10px] text-green-600 font-medium flex items-center gap-1">
+              <Check size={10} /> All created
             </span>
           ) : (
             <Button
               size="sm"
               onClick={() => batchMutation.mutate()}
               disabled={batchMutation.isPending}
-              className="text-xs"
+              className="text-[10px] h-6 px-2"
             >
-              {batchMutation.isPending ? <Loader2 size={12} className="animate-spin" /> : "全部创建"}
+              {batchMutation.isPending ? <Loader2 size={10} className="animate-spin" /> : "Create All"}
             </Button>
           )}
         </div>

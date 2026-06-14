@@ -74,20 +74,20 @@ export default function GoalListPage() {
   };
 
   const chipBase =
-    "inline-flex items-center gap-1.5 px-3 py-1.5 border-2 border-border text-xs font-head font-bold transition-all cursor-pointer select-none";
-  const chipActive = `${chipBase} bg-primary shadow-[3px_3px_0_0_#000]`;
-  const chipInactive = `${chipBase} bg-background hover:bg-muted`;
+    "inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium transition-all cursor-pointer select-none rounded-sm";
+  const chipActive = `${chipBase} bg-primary text-foreground`;
+  const chipInactive = `${chipBase} text-muted-foreground hover:bg-muted hover:text-foreground`;
 
   return (
     <div className="flex flex-col h-full">
       {/* header */}
-      <div className="flex items-center gap-3 px-6 py-5 border-b-2 border-border bg-card/50 shrink-0">
-        <Text as="h2" className="text-2xl">Goal</Text>
+      <div className="flex items-center gap-2 px-4 py-2.5 border-b border-border bg-card/50 shrink-0">
+        <Text as="h2" className="text-sm font-bold">Goal</Text>
         <div className="flex-1" />
         <CreateGoalDialog defaultGroupId={activeGroupId} />
       </div>
 
-      <div className="flex-1 min-h-0 p-6 flex flex-col">
+      <div className="flex-1 min-h-0 p-4 flex flex-col">
         {/* group tabs */}
         <div className="flex flex-wrap items-center gap-2 mb-4">
         <button

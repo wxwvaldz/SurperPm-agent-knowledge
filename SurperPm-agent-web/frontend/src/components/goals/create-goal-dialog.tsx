@@ -144,9 +144,9 @@ export function CreateGoalDialog({
             </div>
           </Dialog.Header>
 
-          <form onSubmit={handleSubmit} className="divide-y-2 divide-border">
+          <form onSubmit={handleSubmit} className="divide-y divide-border max-h-[70vh] overflow-y-auto">
             {/* ── Title & Description ── */}
-            <div className="p-5 space-y-4">
+            <div className="p-3 space-y-2">
               <div>
                 <SectionLabel icon={Hash}>Title *</SectionLabel>
                 <Input
@@ -172,7 +172,7 @@ export function CreateGoalDialog({
 
             {/* ── Deadline, Budget & Assignee ── */}
             <div className="grid grid-cols-3 divide-x-2 divide-border">
-              <div className="p-5 space-y-1.5">
+              <div className="p-3 space-y-1">
                 <SectionLabel icon={Calendar}>Deadline</SectionLabel>
                 <Input
                   id="goal-deadline"
@@ -181,7 +181,7 @@ export function CreateGoalDialog({
                   onChange={(e) => setDeadline(e.target.value)}
                 />
               </div>
-              <div className="p-5 space-y-1.5">
+              <div className="p-3 space-y-1">
                 <SectionLabel icon={Coins}>Token Budget</SectionLabel>
                 <Input
                   id="goal-budget"
@@ -192,7 +192,7 @@ export function CreateGoalDialog({
                   min="0"
                 />
               </div>
-              <div className="p-5 space-y-1.5">
+              <div className="p-3 space-y-1">
                 <SectionLabel icon={User}>Assignee</SectionLabel>
                 <Select
                   value={assignedTo || UNASSIGNED}
@@ -215,44 +215,36 @@ export function CreateGoalDialog({
 
             {/* ── Schedule & Delay ── */}
             <div className="grid grid-cols-2 divide-x-2 divide-border">
-              <div className="p-5 space-y-1.5">
-                <SectionLabel icon={Calendar}>定时执行 (小时间隔)</SectionLabel>
+              <div className="p-3 space-y-1">
+                <SectionLabel icon={Calendar}>Schedule (hours)</SectionLabel>
                 <Input
                   type="number"
                   value={schedule}
                   onChange={(e) => setSchedule(e.target.value)}
-                  placeholder="如 24 = 每24小时"
+                  placeholder="e.g. 24 = every 24h"
                   min="0"
                 />
               </div>
-              <div className="p-5 space-y-1.5">
-                <SectionLabel icon={Calendar}>延迟执行 (分钟)</SectionLabel>
+              <div className="p-3 space-y-1">
+                <SectionLabel icon={Calendar}>Delay (minutes)</SectionLabel>
                 <Input
                   type="number"
                   value={delayMinutes}
                   onChange={(e) => setDelayMinutes(e.target.value)}
-                  placeholder="如 30 = 30分钟后执行"
+                  placeholder="e.g. 30 = start in 30min"
                   min="0"
                 />
               </div>
             </div>
 
             {/* ── Target ── */}
-            <div className="p-5 space-y-1.5">
-              <SectionLabel icon={GitBranch}>执行资源</SectionLabel>
-              <Input
-                type="text"
-                value={target}
-                onChange={(e) => setTarget(e.target.value)}
-                placeholder="留空=本机，或输入已注册 Agent 名称"
-              />
-              <p className="text-[10px] text-muted-foreground">
-                在 Settings → Agents 中注册远程 Agent
-              </p>
+            <div className="p-3 space-y-1">
+              <SectionLabel icon={GitBranch}>Target</SectionLabel>
+              <AgentSelect value={target} onChange={setTarget} />
             </div>
 
             {/* ── Repos ── */}
-            <div className="p-5 space-y-3">
+            <div className="p-3 space-y-2">
               <SectionLabel icon={GitBranch}>Repositories</SectionLabel>
 
               {configuredRepos.length > 0 && (
@@ -264,7 +256,7 @@ export function CreateGoalDialog({
                         key={url}
                         type="button"
                         onClick={() => toggleRepo(url)}
-                        className={`flex w-full items-center gap-2.5 border-2 px-3 py-2 text-left transition-all ${
+                        className={`flex w-full items-center gap-2.5 border px-2.5 py-1.5 text-left transition-all ${
                           selected
                             ? "border-border bg-primary shadow-[2px_2px_0_0_#000] translate-x-0"
                             : "border-border bg-background hover:bg-accent"
@@ -315,7 +307,7 @@ export function CreateGoalDialog({
             </div>
 
             {/* ── Footer ── */}
-            <div className="p-5">
+            <div className="p-3">
               <Dialog.Footer>
                 <Dialog.Close
                   render={
@@ -336,5 +328,30 @@ export function CreateGoalDialog({
         </Dialog.Content>
       </Dialog>
     </>
+  );
+}
+
+interface AgentInfo { name: string; status: string }
+
+function AgentSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const { data: agents = [] } = useQuery({
+    queryKey: ["agents"],
+    queryFn: () => api.get<AgentInfo[]>("/agents"),
+  });
+
+  return (
+    <Select value={value || "__local__"} onValueChange={(v) => onChange(v === "__local__" ? "" : v)}>
+      <Select.Trigger className="w-full">
+        <Select.Value placeholder="Local (default)" />
+      </Select.Trigger>
+      <Select.Content>
+        <Select.Item value="__local__">Local (default)</Select.Item>
+        {agents.map((a) => (
+          <Select.Item key={a.name} value={a.name}>
+            {a.name} {a.status === "online" ? "🟢" : "⚪"}
+          </Select.Item>
+        ))}
+      </Select.Content>
+    </Select>
   );
 }

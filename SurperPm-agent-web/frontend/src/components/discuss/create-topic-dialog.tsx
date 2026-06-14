@@ -55,13 +55,13 @@ export function CreateTopicDialog({
       <Dialog.Content size="sm">
         <Dialog.Header>
           <Text as="h3" className="text-sm">
-            新建话题
+            New Topic
           </Text>
         </Dialog.Header>
-        <form onSubmit={handleSubmit} className="p-4 space-y-4">
+        <form onSubmit={handleSubmit} className="p-4 space-y-3">
           <div>
-            <Label htmlFor="topic-name" className="mb-1.5 block text-xs">
-              话题名称
+            <Label htmlFor="topic-name" className="mb-1 block text-xs">
+              Name
             </Label>
             <Input
               id="topic-name"
@@ -73,27 +73,27 @@ export function CreateTopicDialog({
             />
           </div>
           <div>
-            <Label htmlFor="topic-desc" className="mb-1.5 block text-xs">
-              描述（可选）
+            <Label htmlFor="topic-desc" className="mb-1 block text-xs">
+              Description
             </Label>
             <Input
               id="topic-desc"
               type="text"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="话题描述..."
+              placeholder="Optional..."
             />
           </div>
           <Dialog.Footer>
             <Dialog.Close
               render={
                 <Button type="button" variant="outline">
-                  取消
+                  Cancel
                 </Button>
               }
             />
             <Button type="submit" disabled={!name.trim() || createMutation.isPending}>
-              {createMutation.isPending ? "创建中..." : "创建"}
+              {createMutation.isPending ? "Creating..." : "Create"}
             </Button>
           </Dialog.Footer>
         </form>

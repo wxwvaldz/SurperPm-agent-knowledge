@@ -81,11 +81,11 @@ export default function GoalSettingsPage() {
             </div>
             {updateMutation.isError && (
               <p className="text-xs text-destructive">
-                保存失败: {(updateMutation.error as Error).message}
+                Save failed: {(updateMutation.error as Error).message}
               </p>
             )}
             {updateMutation.isSuccess && (
-              <p className="text-xs text-green-600">已保存</p>
+              <p className="text-xs text-green-600">Saved</p>
             )}
             <Button
               onClick={handleSave}
@@ -163,7 +163,7 @@ function GoalReposCard({ goalId, repos }: { goalId: number; repos: string[] }) {
           </div>
           {mutation.isError && (
             <p className="text-xs text-destructive">
-              保存失败: {(mutation.error as Error).message}
+              Save failed: {(mutation.error as Error).message}
             </p>
           )}
         </div>

@@ -73,7 +73,7 @@ function ChatWithTopics({
           >
             <Hash size={14} className="text-muted-foreground" />
             <span className="text-sm font-medium truncate max-w-[140px]">
-              {selectedTopic?.name ?? "选择话题"}
+              {selectedTopic?.name ?? "Select topic"}
             </span>
             <ChevronDown size={12} className="text-muted-foreground" />
           </button>
@@ -119,14 +119,14 @@ function ChatWithTopics({
                           <button
                             onClick={(e) => { e.stopPropagation(); setEditingId(topic.id); setEditName(topic.name); }}
                             className="p-0.5 hover:text-foreground text-muted-foreground"
-                            title="重命名"
+                            title="Rename"
                           >
                             <Pencil size={11} />
                           </button>
                           <button
                             onClick={(e) => { e.stopPropagation(); deleteMut.mutate(topic.id); }}
                             className="p-0.5 hover:text-destructive text-muted-foreground"
-                            title="删除"
+                            title="Delete"
                           >
                             <Trash2 size={11} />
                           </button>
@@ -145,7 +145,7 @@ function ChatWithTopics({
                   className="w-full flex items-center gap-2 px-3 py-1.5 text-left text-sm text-muted-foreground hover:bg-muted/50"
                 >
                   <Plus size={12} />
-                  <span>新话题</span>
+                  <span>New Topic</span>
                 </button>
               </div>
             </div>
@@ -153,7 +153,7 @@ function ChatWithTopics({
         </div>
         <div className="flex-1" />
         <span className="text-xs text-muted-foreground font-head uppercase tracking-wider">
-          {topics.length} 个话题
+          {topics.length} topics
         </span>
       </div>
 
@@ -180,9 +180,10 @@ function DiscussContent({ workspaceId }: { workspaceId: string }) {
         </div>
       }
       right={<ChatWithTopics screenshotRef={screenshotRef} />}
-      defaultLeftPercent={60}
+      defaultLeftPercent={50}
       minLeftPercent={30}
-      maxLeftPercent={80}
+      maxLeftPercent={70}
+      initialCollapsed="left"
     />
   );
 }
@@ -194,7 +195,7 @@ export default function DiscussPage() {
   if (!workspaceId) {
     return (
       <div className="flex items-center justify-center h-full">
-        <Text className="text-muted-foreground">加载中...</Text>
+        <Text className="text-muted-foreground">Loading...</Text>
       </div>
     );
   }
@@ -202,10 +203,10 @@ export default function DiscussPage() {
   return (
     <WSProvider workspaceId={workspaceId}>
       <div className="flex flex-col h-full">
-        <div className="flex items-center gap-3 px-6 py-5 border-b-2 border-border bg-card/50 shrink-0">
-          <Text as="h2" className="text-2xl">Discuss</Text>
+        <div className="flex items-center gap-2 px-4 py-2.5 border-b border-border bg-card/50 shrink-0">
+          <Text as="h2" className="text-sm font-bold">Discuss</Text>
         </div>
-        <div className="flex-1 min-h-0 p-6">
+        <div className="flex-1 min-h-0 p-3">
           <DiscussContent workspaceId={workspaceId} />
         </div>
       </div>

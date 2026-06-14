@@ -124,9 +124,9 @@ export function GoalCard({ goal }: GoalCardProps) {
     <>
       {isExecuting && !isPaused ? (
         <motion.div
-          animate={{ boxShadow: ["3px 3px 0 0 #000", "3px 3px 0 0 rgba(250,204,21,0.7)", "3px 3px 0 0 #000"] }}
+          animate={{ borderColor: ["var(--border)", "rgba(250,204,21,0.7)", "var(--border)"] }}
           transition={{ repeat: Infinity, duration: 2 }}
-          className={`border-2 border-border bg-card cursor-pointer hover:shadow-[1px_1px_0_0_#000] hover:translate-x-[2px] hover:translate-y-[2px] transition-all overflow-hidden ${cfg.borderL} border-l-4`}
+          className={`border border-border bg-card cursor-pointer hover:bg-muted/30 transition-all overflow-hidden ${cfg.borderL} border-l-3`}
           onClick={() => navigate(`/goals/${goal.id}/execute`)}
         >
           <CardContent {...{ goal, cfg, Icon, isExecuting, isPaused, progress, finalExecId,
@@ -135,7 +135,7 @@ export function GoalCard({ goal }: GoalCardProps) {
         </motion.div>
       ) : (
         <div
-          className={`border-2 border-border bg-card cursor-pointer hover:shadow-[1px_1px_0_0_#000] hover:translate-x-[2px] hover:translate-y-[2px] transition-all shadow-[3px_3px_0_0_#000] overflow-hidden ${cfg.borderL} border-l-4`}
+          className={`border border-border bg-card cursor-pointer hover:bg-muted/30 transition-all overflow-hidden ${cfg.borderL} border-l-3`}
           onClick={() => navigate(`/goals/${goal.id}/execute`)}
         >
           <CardContent {...{ goal, cfg, Icon, isExecuting, isPaused, progress, finalExecId,
@@ -147,7 +147,7 @@ export function GoalCard({ goal }: GoalCardProps) {
       <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
         <Dialog.Content size="sm">
           <Dialog.Header><Text as="h3" className="text-sm">Delete Goal</Text></Dialog.Header>
-          <div className="p-4 space-y-4">
+          <div className="p-3 space-y-2">
             <p className="text-sm text-foreground/70">
               Delete "{goal.title}"? This removes the goal and its execution history and cannot be undone.
             </p>
@@ -179,6 +179,20 @@ function CardContent({ goal, cfg, Icon, isExecuting, isPaused, progress, finalEx
           <div className="flex-1 min-w-0">
             <p className="text-sm font-bold truncate">{goal.title}</p>
             {goal.description && <p className="text-xs text-foreground/60 mt-1 line-clamp-2">{goal.description}</p>}
+            {(goal.schedule || goal.delay_until) && (
+              <div className="flex gap-1.5 mt-1">
+                {goal.schedule && (
+                  <span className="text-[10px] text-orange-600 font-medium">
+                    ↻ every {goal.schedule}h
+                  </span>
+                )}
+                {goal.delay_until && goal.status === "todo" && (
+                  <span className="text-[10px] text-blue-600 font-medium">
+                    ⏱ {new Date(goal.delay_until).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         </div>
 

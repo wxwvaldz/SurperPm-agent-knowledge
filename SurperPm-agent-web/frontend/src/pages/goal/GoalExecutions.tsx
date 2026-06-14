@@ -116,10 +116,10 @@ export default function GoalExecutionsPage() {
   return (
     <div className="flex flex-col h-full p-6">
       {/* header */}
-      <div className="flex items-center justify-between shrink-0 mb-5">
+      <div className="flex items-center justify-between shrink-0 mb-3">
         <div>
-          <Text as="h3" className="text-lg">Executions</Text>
-          <p className="text-xs text-foreground/40 mt-0.5">{executions.length} runs</p>
+          <Text as="h3" className="text-sm font-bold">Executions</Text>
+          <p className="text-[10px] text-foreground/40">{executions.length} runs</p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" onClick={() => setConsoleOpen(true)}>
@@ -150,7 +150,7 @@ export default function GoalExecutionsPage() {
       {isLoading && (
         <div className="space-y-3">
           {[1, 2].map((i) => (
-            <div key={i} className="border-2 border-border bg-card p-5 space-y-3 shadow-[3px_3px_0_0_#000] animate-pulse">
+            <div key={i} className="border border-border bg-card p-3 space-y-2 animate-pulse">
               <div className="flex items-center gap-3">
                 <div className="h-3 w-3 bg-accent" />
                 <div className="h-4 w-24 bg-accent" />
@@ -165,7 +165,7 @@ export default function GoalExecutionsPage() {
       {/* empty */}
       {!isLoading && executions.length === 0 && (
         <div className="flex flex-col items-center gap-3 py-20">
-          <div className="border-2 border-border p-5 shadow-[4px_4px_0_0_#000] bg-card">
+          <div className="border border-border p-3 bg-card">
             <Play size={48} className="opacity-10" />
           </div>
           <p className="text-sm font-head text-foreground/30">No executions yet</p>
@@ -271,9 +271,9 @@ function ExecutionCard({ exec }: { exec: Execution }) {
               <a
                 href="/"
                 className="flex items-center gap-1 text-primary hover:underline font-bold"
-                title="在 Discuss 中讨论此失败"
+                title="Discuss this failure"
               >
-                <ExternalLink size={10} /> 讨论
+                <ExternalLink size={10} /> Discuss
               </a>
             )}
           </div>

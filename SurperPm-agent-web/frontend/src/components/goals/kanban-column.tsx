@@ -12,15 +12,12 @@ interface KanbanColumnProps {
 
 export function KanbanColumn({ title, icon: Icon, iconColor, bgBar, goals }: KanbanColumnProps) {
   return (
-    <div className="flex flex-col border-2 border-border bg-background min-h-0 min-w-0 overflow-hidden">
-      {/* colored top bar — thicker for visual weight */}
-      <div className={`h-2 w-full shrink-0 ${bgBar}`} />
-
-      {/* header */}
-      <div className="flex items-center gap-2 px-3 py-2.5 shrink-0 border-b-2 border-border">
-        <Icon size={15} className={`shrink-0 ${iconColor}`} />
-        <h3 className="font-bold text-xs font-head uppercase tracking-wide flex-1">{title}</h3>
-        <span className="inline-flex items-center justify-center min-w-[22px] h-5 px-1.5 text-[11px] font-head text-secondary-foreground bg-secondary border-2 border-border">
+    <div className="flex flex-col border border-border bg-background min-h-0 min-w-0 overflow-hidden">
+      <div className={`h-1 w-full shrink-0 ${bgBar}`} />
+      <div className="flex items-center gap-1.5 px-2.5 py-2 shrink-0 border-b border-border">
+        <Icon size={13} className={`shrink-0 ${iconColor}`} />
+        <h3 className="font-bold text-[11px] font-head uppercase tracking-wide flex-1">{title}</h3>
+        <span className="inline-flex items-center justify-center min-w-[18px] h-4 px-1 text-[10px] font-head text-secondary-foreground bg-secondary border border-border">
           {goals.length}
         </span>
       </div>
