@@ -4,13 +4,13 @@ tags: [backend, api, rest, idempotency, security]
 when: "写新 API endpoint / 改 API / 加 endpoint"
 priority: high
 
-created: 2026-06-14
-last_accessed: 2026-06-14
+created: 2026-06-04
+last_accessed: 2026-06-04
 hit_count: 0
 ttl_days: 180
 status: active
 
-source: session/backend-api-20260614
+source: session/backend-api-20260604
 ---
 
 # 后端 API endpoint 强约束

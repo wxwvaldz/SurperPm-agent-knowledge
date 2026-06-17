@@ -1,16 +1,16 @@
-# Profiles Index
+# 画像索引
 
-> **Purpose**: L0 profile layer (always visible to all goals).
-> **Updated**: 2026-06-14
+> **用途**：L0 profile 层（对所有 goal 始终可见）。
+> **Updated**: 2026-05-29
 
-## Structure
+## 目录结构
 
-| File | Purpose | Frequency | Load | Budget |
-|------|---------|-----------|------|--------|
-| `team.md` | Team profile (tech stack, members) | Monthly | Frontmatter only | ~200 |
-| `users/<id>.md` | Personal preferences | Quarterly | On-demand | ~100 |
+| 文件 | 用途 | 更新频率 | 加载方式 | Token 预算 |
+|------|------|----------|----------|------------|
+| `team.md` | 团队画像（技术栈、成员） | 每月 | 仅 frontmatter | ~200 |
+| `users/<id>.md` | 个人偏好 | 每季度 | 按需加载 | ~100 |
 
-## Frontmatter Schema
+## Frontmatter 字段规范
 
 **完整 schema 见 `_meta/frontmatter-schema.md` §2.2 (team.md) + §2.3 (users/<id>.md)**。
 
@@ -19,11 +19,11 @@
 - `tags` 必含 `team` 或 `user` 前缀
 - 默认 `ttl_days: 180`
 - `source` 通常是 `setup` 或 `session/<name>`
-- profiles 不允许包含 PII / 敏感数据（见下方 Anti-patterns）
+- profiles 不允许包含 PII / 敏感数据（见下方反模式）
 
 参考 5 个真实 user profile 作样板：`alice-chen.md` / `bob-wang.md` / `carol-liu.md` / `david-zhao.md` / `eve-sun.md`
 
-## Distill Rules
+## Distill 规则
 
 ### team.md
 
@@ -35,8 +35,8 @@
 
 **When to write** (via `/summary` or `/distill summary`):
 
-| Signal | Initial confidence | Example |
-|--------|-------------------|---------|
+| 信号 | 初始 confidence | 示例 |
+|------|-----------------|------|
 | User states preferences directly | 0.9 | "I prefer TypeScript over JavaScript" |
 | AI infers from repeated behavior | 0.7 | "User consistently writes TDD style" |
 | User corrects AI repeatedly | 0.9 | "No, use pnpm not npm" |
@@ -63,14 +63,14 @@
 - Review: <quick/detailed>
 ```
 
-## Discovery
+## 发现规则
 
 At goal start:
 1. Always read: `team.md` frontmatter (~200 tokens)
 2. If user identified: Read `users/<id>.md` frontmatter
 3. Need details: Grep full file
 
-## Anti-patterns
+## 反模式
 
 - No personal info beyond work preferences (privacy)
 - No sensitive data

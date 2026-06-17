@@ -4,13 +4,13 @@ tags: [matplotlib, style, science, publication, figure]
 when: "用 matplotlib 画论文图 / 学术报告图"
 priority: high
 
-created: 2026-06-14
-last_accessed: 2026-06-14
+created: 2026-06-04
+last_accessed: 2026-06-04
 hit_count: 0
 ttl_days: 180
 status: active
 
-source: session/research-paper-figure-20260614
+source: session/research-paper-figure-20260604
 ---
 
 # Matplotlib 科研图风格模板

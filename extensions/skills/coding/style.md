@@ -5,8 +5,8 @@ when: "重构、code review、新建模块"
 priority: medium
 
 # === Lifecycle ===
-created: 2026-06-14
-last_accessed: 2026-06-14
+created: 2026-06-04
+last_accessed: 2026-06-04
 hit_count: 0
 ttl_days: 365
 status: active

@@ -4,13 +4,13 @@ tags: [frontend, react, component, typescript]
 when: "写新 React 组件 / 改组件 props / 加 hooks"
 priority: high
 
-created: 2026-06-14
-last_accessed: 2026-06-14
+created: 2026-06-04
+last_accessed: 2026-06-04
 hit_count: 0
 ttl_days: 180
 status: active
 
-source: session/frontend-redesign-20260614
+source: session/frontend-redesign-20260604
 ---
 
 # React 组件强约束

@@ -5,8 +5,8 @@ when: "执行 distill summary/auto/dream 时需要决定知识落到哪个领域
 priority: high
 
 # === Lifecycle ===
-created: 2026-06-14
-last_accessed: 2026-06-14
+created: 2026-06-04
+last_accessed: 2026-06-04
 hit_count: 0
 ttl_days: 365
 status: active

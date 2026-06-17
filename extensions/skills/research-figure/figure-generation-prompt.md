@@ -4,13 +4,13 @@ tags: [prompt, generation, ai-image, midjourney, dalle, scientific-illustration]
 when: "用 AI 生图工具画科研示意图 / schematic / 概念插图"
 priority: high
 
-created: 2026-06-14
-last_accessed: 2026-06-14
+created: 2026-06-04
+last_accessed: 2026-06-04
 hit_count: 0
 ttl_days: 180
 status: active
 
-source: session/research-paper-figure-20260614
+source: session/research-paper-figure-20260604
 ---
 
 # 科研图生图 Prompt 模板

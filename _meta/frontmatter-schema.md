@@ -1,10 +1,10 @@
 ---
-title: "Frontmatter Schema (v0.7)"
+title: "Frontmatter 字段规范 (v0.7)"
 version: v0.7
-updated: 2026-06-14
+updated: 2026-06-04
 ---
 
-# Frontmatter Schema（v0.7）
+# Frontmatter 字段规范（v0.7）
 
 > 知识库所有 `.md` 文件的 frontmatter 字段定义 + 各类文件需要哪些字段。
 
@@ -22,7 +22,7 @@ updated: 2026-06-14
 | `type` | enum | `foundation` / `convention` / `context` / `profile` / `intent-spec` |
 | `tags` | string[] | find 关键词匹配，3-5 个 |
 
-### 组 TRUST ─ 信任度（feed apply-decay）
+### 组 TRUST ─ 信任度（供 apply-decay 使用）
 
 | 字段 | 类型 | 默认 | 含义 |
 |------|------|------|------|
@@ -34,7 +34,7 @@ updated: 2026-06-14
 | `last_verification_by` | string | `""` | 上次校验者（github username）|
 | `last_confidence_update` | date | created | apply-decay 上次改 confidence 日期 |
 
-### 组 ACCESS ─ 访问统计（feed apply-decay + record-access.sh）
+### 组 ACCESS ─ 访问统计（供 apply-decay + record-access.sh 使用）
 
 | 字段 | 类型 | 默认 | 含义 |
 |------|------|------|------|
@@ -80,6 +80,19 @@ updated: 2026-06-14
 | `when` | string | 触发条件描述 |
 | `hit_count` | int | 命中注入次数（替代 access_count）|
 
+### 组 LEARNING ─ learnings 专属（pmpilot-web runtime 管理）
+
+> **注意**：Learnings 使用独立的记忆曲线衰减系统，不走 TRUST/ACCESS 组。
+> 由 `pmpilot-web` 的 `knowledge_distiller` 自动读写。
+
+| 字段 | 类型 | 默认 | 含义 |
+|------|------|------|------|
+| `category` | enum | `insight` | `mistake` / `insight` / `decision` / `pattern` / `external`（决定衰减速率） |
+| `importance` | float [0-1] | 0.5 | 重要度，用于 `score = importance * e^(-λt)` |
+| `confidence` | float [0-1] | 0.7 | 信任度（可选，与 TRUST 组含义一致） |
+| `pinned` | bool | false | 置顶（+0.5 score bonus） |
+| `archived` | bool | false | 归档（score 直接为 0） |
+
 ---
 
 ## 2. 各类文件用哪些组
@@ -93,6 +106,7 @@ updated: 2026-06-14
 | `sessions/topic-*/INDEX.md` | — | — | ✅ | — | `topic_id` | — | topic 概览，goals 列表 |
 | `sessions/topic-*/goal-*.md` | — | — | ✅ | ✅ | `goal_id` + `topic_id` | GOAL ✅ | type=goal-note；含 goal_status + distill_status |
 | `extensions/*/<n>/*.md` | 部分 | — | 部分 | ✅ | — | EXT ✅ | IDENTITY 只 `tags`；ACCESS 用 `hit_count` 代 `access_count`，其余 ACCESS 字段保留 |
+| `learnings/*.md` | 部分 | — | — | — | — | LEARNING ✅ | **独立系统**：由 pmpilot-web runtime 管理，使用记忆曲线衰减，不走 TRUST/ACCESS 组 |
 
 ---
 

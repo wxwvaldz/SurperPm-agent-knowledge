@@ -1,86 +1,78 @@
-# Shared Domain Knowledge Index
+# 共享领域知识索引
 
-> **Purpose**: Cross-cutting knowledge that applies to ALL goals.
-> **Updated**: 2026-06-14
-> **Loaded**: Always (before any business-specific knowledge)
+> **用途**：适用于所有 goal 的跨领域通用知识。
+> **更新日期**：2026-06-04
+> **加载方式**：始终加载（在任何业务领域知识之前）
 
-## Structure
+## 结构
 
-| Subtree | Contents | TTL |
-|---------|----------|-----|
-| `foundations/` | SuperPmAgent 跨域架构事实 | 365 days |
-| `conventions/` | SuperPmAgent 跨域团队约定 | 180 days |
-| `context/` | SuperPmAgent 跨域当前推进事项 | 60 days |
+| 子目录 | 内容 | TTL |
+|--------|------|-----|
+| `foundations/` | PMPilot 跨域架构事实 | 365 天 |
+| `conventions/` | PMPilot 跨域团队约定 | 180 天 |
+| `context/` | PMPilot 跨域当前推进事项 | 60 天 |
 
-## Files
+## 文件列表
 
-### Foundations
+### 基础知识（Foundations）
 
-| File | Title | Confidence | Updated |
-|------|-------|-----------|---------|
-| `foundations/markdown-architecture.md` | Markdown + Git 架构基石 | 0.9 | 2026-06-14 |
-| `foundations/user-model.md` | 用户模型与身份体系 | 0.85 | 2026-06-14 |
-| `foundations/api-id-uuid.md` | 所有 API 用 UUID 作主键 | 0.9 | 2026-06-14 |
-| `foundations/migration-reversible.md` | 数据库 migration 必须可回滚 | 0.85 | 2026-06-14 |
+> `foundations/` 目录尚未创建。待补充跨域架构知识。
 
-### Conventions
+### 团队约定（Conventions）
 
-| File | Title | Confidence | Updated |
-|------|-------|-----------|---------|
-| `conventions/coding-standards.md` | 编码规范（命名、注释、错误处理）| 0.9 | 2026-06-14 |
-| `conventions/frontmatter-format.md` | Frontmatter 格式约定 | 0.95 | 2026-06-14 |
-| `conventions/git-branch-naming.md` | Git 分支命名规范 | 0.9 | 2026-06-14 |
-| `conventions/pr-review-protocol.md` | PR 审核流程与 checklist | 0.85 | 2026-06-14 |
+| 文件 | 标题 | 信任度 | 更新日期 |
+|------|------|--------|----------|
+| `conventions/git-branch-naming.md` | Git 分支命名规范 | 0.9 | 2026-06-04 |
+| `conventions/pr-review-protocol.md` | PR 审核流程与 checklist | 0.85 | 2026-06-04 |
 
-### Context
+### 当前上下文（Context）
 
-| File | Title | Confidence | Updated |
-|------|-------|-----------|---------|
-| `context/active-features.md` | 当前在做的特性总览 | 0.8 | 2026-06-14 |
-| `context/distill-testing.md` | 蒸馏测试笔记 | 0.7 | 2026-06-14 |
+| 文件 | 标题 | 信任度 | 更新日期 |
+|------|------|--------|----------|
+| `context/v07-active-work.md` | v0.7 当前推进事项 | 0.8 | 2026-06-04 |
 
-## Discovery
+## 发现规则
 
-At **every** goal start, the `find` skill loads ALL files in `_shared/`:
+**每次** goal 启动时，`find` skill 加载 `_shared/` 下所有文件：
 
 ```
-Load order:
-1. _shared/foundations/*.md  (always read full text)
-2. _shared/conventions/*.md  (grep by tags if > 10 files)
-3. _shared/context/*.md      (only where status: active)
+加载顺序：
+1. _shared/foundations/*.md  （始终读取全文）
+2. _shared/conventions/*.md  （超过 10 个文件时按 tags grep）
+3. _shared/context/*.md      （仅 status: active 的文件）
 ```
 
-**Budget**: ~500 tokens
+**预算**：约 500 tokens
 
-## Distill Rules
+## 蒸馏规则
 
-### When to write to _shared vs. business-specific
+### 何时写入 _shared vs. 业务领域
 
-| Question | Target |
-|----------|--------|
-| Does this apply to ALL business areas? | `_shared/` |
-| Does this only apply to one area? | `<area>/` (e.g., `payment/`) |
-| Is this a team-wide convention? | `_shared/conventions/` |
-| Is this specific to one business area? | `<area>/conventions/` |
+| 判断问题 | 目标路径 |
+|---------|----------|
+| 适用于所有业务领域？ | `_shared/` |
+| 仅适用于某个领域？ | `<area>/`（如 `payment/`）|
+| 全团队级约定？ | `_shared/conventions/` |
+| 特定业务领域约定？ | `<area>/conventions/` |
 
-### Examples
+### 示例
 
-**Write to `_shared/foundations/`**:
-- "All APIs must use UUID for IDs"
-- "Database migrations must be reversible"
-- "Git branching: main ← develop ← feature"
+**写入 `_shared/foundations/`**：
+- "所有 API 必须用 UUID 作主键"
+- "数据库 migration 必须可回滚"
+- "Git 分支：main ← develop ← feature"
 
-**Write to `<area>/foundations/`** (例：payment):
-- "Payment gateway integrates with Stripe"
-- "Refund must verify idempotency key"
-- "Settlement cycle: T+1 to merchants"
+**写入 `<area>/foundations/`**（例：payment）：
+- "支付网关对接 Stripe"
+- "退款必须校验 Idempotency-Key"
+- "结算周期：T+1 到商户"
 
-## Unified Frontmatter
+## 统一 Frontmatter
 
-Same as domain standard (see parent `INDEX.md`). 必填字段 `area: _shared`。
+与 domain 标准相同（见父级 `INDEX.md`）。必填字段 `area: _shared`。
 
-## Anti-patterns
+## 反模式
 
-- ❌ Don't write area-specific knowledge here (use `<area>/`)
-- ❌ Don't duplicate — if exists in business area, don't add to _shared
-- ✅ Do write here if applies to **2 or more** areas
+- ❌ 不要在这里写特定领域的知识（应放 `<area>/`）
+- ❌ 不要重复 — 如果业务领域已存在，不要再加到 _shared
+- ✅ 适用于 **2 个或以上**领域的知识才写在这里

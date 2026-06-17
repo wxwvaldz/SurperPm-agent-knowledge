@@ -1,13 +1,13 @@
-# extensions index
+# 扩展索引
 
-> **Updated**: 2026-06-14
+> **Updated**: 2026-06-04
 > **Status**: ✅ Active — pre-tool-use.py resolver 已接通
 
-Extension prompts injected by `SuperPmAgent-core/hooks/pre-tool-use.py` at every
+Extension prompts injected by `pmpilot-core/hooks/pre-tool-use.py` at every
 tool/skill/MCP call. Filter is deterministic (priority + keyword overlap)
 — no LLM needed for MVP; future upgrade can swap to Haiku micro-call.
 
-## Layout
+## 目录结构
 
 ```
 extensions/
@@ -23,12 +23,12 @@ extensions/
 └── plugins/                ← 整个 plugin 的全局引导
 ```
 
-## Current Files
+## 当前文件
 
 ### skills/
 
-| File | Target | Priority | When |
-|------|--------|----------|------|
+| 文件 | 目标 | 优先级 | 触发时机 |
+|------|------|--------|----------|
 | `skills/coding/tdd.md` | skill:coding | high | 开发业务 / 改核心模块 |
 | `skills/coding/style.md` | skill:coding | medium | 重构 / code review |
 | `skills/distill/business-area-mapping.md` | skill:distill | high | distill 时决定 area |
@@ -40,18 +40,18 @@ extensions/
 
 ### mcp/
 
-| File | Target | Priority | When |
-|------|--------|----------|------|
+| 文件 | 目标 | 优先级 | 触发时机 |
+|------|------|--------|----------|
 | `mcp/feishu-doc/strip-toc.md` | mcp:feishu-doc | high | 拉飞书 PRD/需求 |
 | `mcp/image-gen/academic-style-prompt.md` | mcp:image-gen | high | 调 image-gen 画科研图 |
 
 ### plugins/
 
-| File | Target | Priority | When |
-|------|--------|----------|------|
+| 文件 | 目标 | 优先级 | 触发时机 |
+|------|------|--------|----------|
 | (无) | — | — | — |
 
-## Quality Rules
+## 质量规则
 
 - 单个 target 下 extension ≤5 个（防爆炸）
 - body ≤2000 字符（防注入膨胀）
@@ -59,7 +59,7 @@ extensions/
 - priority 分布：high ≤50%、medium 主体、low 兜底
 - 必须从真实 session 蒸馏（带 `source: session/...`），禁止凭空手写
 
-## Anti-patterns
+## 反模式
 
 - ❌ 默认全注入（违反 resolver 第 4 步）
 - ❌ body 写长篇知识文档（属于 domain/）

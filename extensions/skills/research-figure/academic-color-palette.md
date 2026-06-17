@@ -4,13 +4,13 @@ tags: [color, palette, science, accessibility, colorblind]
 when: "画科研图选颜色 / 多类别对比 / 热力图 / 等高线"
 priority: high
 
-created: 2026-06-14
-last_accessed: 2026-06-14
+created: 2026-06-04
+last_accessed: 2026-06-04
 hit_count: 0
 ttl_days: 180
 status: active
 
-source: session/research-paper-figure-20260614
+source: session/research-paper-figure-20260604
 ---
 
 # 学术配色调色板

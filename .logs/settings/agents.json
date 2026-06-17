@@ -1,0 +1,12 @@
+{
+  "agents": {
+    "my-mac": {
+      "name": "my-mac",
+      "cc_api_url": "http://192.168.1.100:8765",
+      "cc_api_token": "pmpilot-local-token",
+      "project": "my-project",
+      "description": "Mac本地 cc-connect",
+      "status": "offline"
+    }
+  }
+}

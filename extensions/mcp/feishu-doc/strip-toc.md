@@ -5,14 +5,14 @@ when: "拉取飞书 PRD/需求文档，目录页噪音大、富文本表情多"
 priority: high
 
 # === Lifecycle ===
-created: 2026-06-14
-last_accessed: 2026-06-14
+created: 2026-06-04
+last_accessed: 2026-06-04
 hit_count: 0
 ttl_days: 180
 status: active
 
 # === Provenance ===
-source: session/distill-feishu-noise-20260614
+source: session/distill-feishu-noise-20260530
 ---
 
 调用 feishu-doc MCP 后必做的清洗：

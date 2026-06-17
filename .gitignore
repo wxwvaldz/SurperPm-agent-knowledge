@@ -1,0 +1,22 @@
+.DS_Store
+
+# ── Runtime data (local only, never sync) ──
+
+# Plugins cloned from remote repos
+plugins/
+
+# Goal execution data and artifacts
+.logs/goal/
+
+# Discussion messages and topics
+.logs/discuss/
+
+# Secrets and workspace-specific data
+.logs/settings/workspaces.jsonl
+.logs/secrets.jsonl
+
+# ── Sync only these in .logs/settings/ ──
+# .logs/settings/settings.json      — system config
+# .logs/settings/goal-recipes.json  — shared scheduled task recipes
+# .logs/settings/decay-config.yaml  — memory decay parameters
+# (all other .logs/ content is local-only)

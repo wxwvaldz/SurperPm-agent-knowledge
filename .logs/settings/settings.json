@@ -1,0 +1,31 @@
+{
+  "knowledge_repo_path": null,
+  "created_at": "2026-05-29T16:23:17",
+  "id": 1,
+  "ssh_public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJkLOFYfjuiopNelsyW+2WL8rBxo7olixxW/knw7dXCh 1531137510@qq.com",
+  "knowledge_repo_url": "https://github.com/itxaiohanglover/pmpilot-knowledge",
+  "ai_base_url": null,
+  "ai_model": null,
+  "distill_config": "{\"internal_sources\":{\"executions\":true,\"discussions\":true},\"external_sources\":[{\"type\":\"webpage\",\"url\":\"https://www.anthropic.com/news\"}],\"schedule\":{\"interval_hours\":24},\"decay\":{\"archive_threshold\":0.3,\"pin_bonus\":0.5},\"max_learnings_per_cycle\":10}",
+  "updated_at": "2026-06-14T15:21:21.001570+00:00",
+  "plugin_sync": {
+    "repo_urls": [
+      "git@github.com:itxaiohanglover/pmpilot-plugins.git"
+    ],
+    "last_synced": "2026-06-14T13:17:34.602673+00:00",
+    "results": [
+      {
+        "repo_url": "git@github.com:itxaiohanglover/pmpilot-plugins.git",
+        "ok": true,
+        "commit": "2f7e4d5",
+        "synced": [
+          "pmpilot-business",
+          "pmpilot-coding",
+          "pmpilot-core",
+          "pmpilot-io",
+          "pmpilot-learning"
+        ]
+      }
+    ]
+  }
+}

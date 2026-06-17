@@ -3,7 +3,7 @@ title: "知识库索引"
 type: index
 ---
 
-# SuperPmAgent 知识库
+# PMPilot 知识库
 
 ## 目录结构
 

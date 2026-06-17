@@ -1,0 +1,50 @@
+[
+  {
+    "title": "Knowledge Distill",
+    "description": "从已完成的 Goal 执行记录中提取关键 learnings，自动归档衰减过期的知识。保持团队记忆鲜活。",
+    "schedule": "24",
+    "plugins": ["pmpilot-learning"],
+    "shared_by": "pmpilot",
+    "shared_at": "2026-06-09T00:00:00+00:00"
+  },
+  {
+    "title": "AI Daily News Digest",
+    "description": "抓取 Hacker News、ArXiv AI 板块、主流科技媒体的当日热点，用 AI 总结为 3-5 条精华摘要，写入 learnings/ 作为外部洞察。",
+    "schedule": "24",
+    "plugins": ["pmpilot-core"],
+    "shared_by": "pmpilot",
+    "shared_at": "2026-06-09T00:00:00+00:00"
+  },
+  {
+    "title": "Workspace Cleanup",
+    "description": "清理过期的 goal 工作目录（data/repos/ 下超过 7 天的克隆），释放磁盘空间。",
+    "schedule": "168",
+    "plugins": ["pmpilot-learning"],
+    "shared_by": "pmpilot",
+    "shared_at": "2026-06-09T00:00:00+00:00"
+  },
+  {
+    "title": "Learning Decay Review",
+    "description": "检查所有 learnings 的记忆曲线分数，对低于阈值的自动归档，对高频访问的提升权重。防止知识库膨胀。",
+    "schedule": "72",
+    "plugins": ["pmpilot-learning"],
+    "shared_by": "pmpilot",
+    "shared_at": "2026-06-09T00:00:00+00:00"
+  },
+  {
+    "title": "GitHub Repo Activity Digest",
+    "description": "拉取团队 GitHub 仓库近 24 小时的 commit、PR、issue 动态，生成一份简报写入 learnings/，方便团队成员了解项目进展。",
+    "schedule": "24",
+    "plugins": ["pmpilot-core"],
+    "shared_by": "pmpilot",
+    "shared_at": "2026-06-09T00:00:00+00:00"
+  },
+  {
+    "title": "Knowledge Sync Check",
+    "description": "强制执行一次 knowledge repo 的 git pull + push，确保本地与远程知识库保持同步。适用于多人协作场景。",
+    "schedule": "12",
+    "plugins": ["pmpilot-learning"],
+    "shared_by": "pmpilot",
+    "shared_at": "2026-06-09T00:00:00+00:00"
+  }
+]

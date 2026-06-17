@@ -1,33 +1,33 @@
-# Domain Knowledge Index
+# 领域知识索引
 
-> **Purpose**: Index for L1 domain knowledge, organized by business area.
-> **Updated**: 2026-06-14
+> **用途**：L1 领域知识索引，按业务领域组织。
+> **更新日期**：2026-06-04
 
-## Structure
+## 目录结构
 
-Domain knowledge is organized by **business area**. Top-level `domain/` contains **only** `_shared/` + business-area folders. The three semantic subtrees (`foundations/`, `conventions/`, `context/`) **only** appear inside `_shared/` or inside a business-area folder.
+领域知识按**业务领域**组织。顶层 `domain/` 只包含 `_shared/` 和各业务领域文件夹。三个语义子目录（`foundations/`、`conventions/`、`context/`）只出现在 `_shared/` 或业务领域文件夹内部。
 
 ```
 domain/
-├── INDEX.md                 # This file
-├── _shared/                 # Cross-cutting knowledge (always loaded)
+├── INDEX.md                 # 本文件
+├── _shared/                 # 跨领域通用知识（始终加载）
 │   ├── INDEX.md
-│   ├── foundations/         # SuperPmAgent-wide architectural facts
-│   ├── conventions/         # SuperPmAgent-wide coding standards
-│   └── context/             # SuperPmAgent-wide ongoing initiatives
-└── <business-area>/         # e.g., payment, growth, marketing
+│   ├── foundations/         # PMPilot 全局架构事实
+│   ├── conventions/         # PMPilot 全局编码规范
+│   └── context/             # PMPilot 全局进行中事项
+└── <business-area>/         # 如 payment、growth、marketing
     ├── INDEX.md
-    ├── foundations/         # Stable architectural facts in this area
-    ├── conventions/         # Team conventions in this area
-    └── context/             # Current active work in this area
+    ├── foundations/         # 本领域稳定架构事实
+    ├── conventions/         # 本领域团队约定
+    └── context/             # 本领域当前进行中工作
 ```
 
-**Anti-pattern (DO NOT)**: Putting `.md` files directly under `domain/foundations/`, `domain/conventions/`, or `domain/context/` (top-level). These three names are reserved as **subtree names** inside `_shared/` and business areas.
+**反模式（禁止）**：不允许将 `.md` 文件直接放在 `domain/foundations/`、`domain/conventions/` 或 `domain/context/`（顶层）下。这三个名称保留为 `_shared/` 和业务领域内部的**子目录名**。
 
-## Current Business Areas
+## 当前业务领域
 
-| Area | Description | Status |
-|------|-------------|--------|
+| 领域 | 描述 | 状态 |
+|------|------|------|
 | `_shared` | 跨领域共用（git 规范 / PR review / 当前活跃工作）| active |
 | `research` | 科研：论文写作 / 图表设计 / 引用系统 / 可复现性 / peer review | active |
 | `frontend` | 前端开发：组件架构 / 状态管理 / 性能优化 / React / 可访问性 | active |
@@ -35,17 +35,17 @@ domain/
 
 > 新增业务领域：`mkdir -p domain/<area>/{foundations,conventions,context}` + 创建 `domain/<area>/INDEX.md`。
 
-## Discovery Rules
+## 发现规则
 
-At goal start, the `find` skill loads:
+goal 启动时，`find` skill 加载：
 
-1. **Always**: `_shared/foundations/*.md` + `_shared/conventions/*.md` + `_shared/context/*.md` (status=active)
-2. **By tags**: Match goal tags to business area (e.g., goal mentioning "衰减" → load `decay/`，goal mentioning "蒸馏" → load `distill/`)
-3. **By keyword**: Grep across all areas for relevant context
+1. **始终加载**：`_shared/foundations/*.md` + `_shared/conventions/*.md` + `_shared/context/*.md`（status=active）
+2. **按 tags 匹配**：将 goal tags 匹配到业务领域（如 goal 提到"衰减"→ 加载 `decay/`，提到"蒸馏"→ 加载 `distill/`）
+3. **按关键词**：跨所有领域 grep 匹配相关上下文
 
-**Budget**: ~1500-2000 tokens for domain knowledge.
+**预算**：领域知识约 1500-2000 tokens。
 
-## Three Subtrees: foundation / convention / context
+## 三类子目录：foundation / convention / context
 
 每个领域（含 `_shared`）下都有这三档子目录，含义如下：
 
@@ -60,7 +60,7 @@ At goal start, the `find` skill loads:
 - "这是**团队规则**，新人加入要遵守" → conventions  
 - "这是**当下在推进**，3 个月内可能变" → context
 
-## Frontmatter Schema
+## Frontmatter 字段规范
 
 **完整 schema 见 `_meta/frontmatter-schema.md` §2.1**。
 
@@ -70,88 +70,88 @@ At goal start, the `find` skill loads:
 - 默认 TTL: foundation=365 / convention=180 / context=60
 - 必填 `source: session/<name>`（来自蒸馏，不允许 manual）
 
-### TTL Values（本层 override）
+### TTL 取值（本层 override）
 
-| Type | Default TTL | Extension Criteria |
-|------|-------------|-------------------|
+| 类型 | 默认 TTL | 延长条件 |
+|------|----------|----------|
 | foundation | 365 days | access_count > 10 → +90 days |
 | convention | 180 days | access_count > 5 → +90 days |
 | context | 60 days | status=active → +60 days |
 
-### Confidence Scoring
+### Confidence 评分
 
 完整规则见 `_meta/frontmatter-schema.md` §4。本层常用：
 
-| Source | Initial confidence |
-|--------|-------------------|
-| Single session extraction | 0.6 |
-| User explicit statement | 0.7 |
-| Repeated in >=2 sessions | 0.8 |
-| User corrects AI | 0.9 |
-| Implemented in code/config | 1.0 |
+| 来源 | 初始 confidence |
+|------|-----------------|
+| 单次 session 提取 | 0.6 |
+| 用户明确陈述 | 0.7 |
+| ≥2 次 session 复现 | 0.8 |
+| 用户纠正 AI | 0.9 |
+| 在代码/配置中实现 | 1.0 |
 
-## Distill Rules
+## Distill 规则
 
-### When to write
+### 何时写入
 
-| Pattern | Type | Target |
-|---------|------|--------|
-| Architecture decision ("we decided to use X") | foundation | `<area>/foundations/<slug>.md` |
-| Team convention ("we should always...") | convention | `<area>/conventions/<slug>.md` |
-| Active work ("currently working on X") | context | `<area>/context/<slug>.md` |
+| 模式 | 类型 | 目标路径 |
+|------|------|----------|
+| 架构决策（"我们决定用 X"）| foundation | `<area>/foundations/<slug>.md` |
+| 团队约定（"我们应该始终..."）| convention | `<area>/conventions/<slug>.md` |
+| 当前工作（"正在做 X"）| context | `<area>/context/<slug>.md` |
 
-### Business Area Decision Tree
+### 业务领域决策树
 
-1. Extract keywords from the knowledge content
-2. Match against area keywords:
+1. 从知识内容中提取关键词
+2. 匹配领域关键词：
    - 论文 / paper / 科研 / 图表 / figure / matplotlib / citation / BibTeX / 可复现 / peer review → `research`
    - 前端 / React / Vue / 组件 / 状态管理 / 性能 / a11y / Tailwind / hooks → `frontend`
    - 后端 / API / REST / 数据库 / migration / 并发 / 限流 / 日志 / 微服务 → `backend`
-3. Cross-cutting (applies to ≥2 areas) → `_shared/`
-4. No match → ask user to specify or default to `_shared/`
+3. 跨 ≥2 个领域 → `_shared/`
+4. 无匹配 → 询问用户指定或默认归 `_shared/`
 
-### Quality Gates
+### 质量门禁
 
-- Title must be concise (< 50 chars)
-- Tags must be relevant (3-5 tags)
-- Confidence must have reason
-- Source must reference session
-- Content must be actionable
-- Max 100 lines per file
+- 标题简洁（< 50 字符）
+- tags 相关（3-5 个）
+- confidence 必须有 reason
+- source 必须引用 session
+- 内容必须可操作
+- 每文件不超过 100 行
 
-## Maintenance
+## 维护
 
-- `/distill summary`: Extracts from sessions → writes here
-- `/distill dream`: Archives completed, updates confidence, extends TTL, applies memory decay
-- **Decay 维护脚本**：`SuperPmAgent-core/skills/distill/scripts/apply-decay.sh`（v0.7 新增，**脚本触发**）
+- `/distill summary`：从 session 提取知识 → 写入此处
+- `/distill dream`：归档已完成的，更新 confidence，延长 TTL，应用 memory decay
+- **Decay 维护脚本**：`pmpilot-core/skills/distill/scripts/apply-decay.sh`（v0.7 新增，**脚本触发**）
 
-### Memory Decay Mechanism
+### Memory Decay 机制
 
-**Applied during Dream mode (or apply-decay.sh)**:
-- **Formula**: `decay = base_rate × time_factor × usage_factor`
-- **Base Rates**: foundation=5%/year, convention=8%/year, context=15%/year
-- **Time Factor**: `log(1 + age_years) / log(2)` (logarithmic)
-- **Usage Factor**: 0 access=2.0, 1-2=1.0, 3-9=0.5, 10-19=0.3, 20+=0.1
-- **Max Decay**: 0.10 per Dream run
-- **Grace Period**: age < 30 days → skip decay (避免新知识强制扣分)
-- **High-Access Boost**: access_count >= 10 → +0.02~0.10
-- **配置文件**：`knowledge/.SuperPmAgent/decay-config.yaml`（v0.7 新增，可配置）
+**在 Dream 模式（或 apply-decay.sh）中执行**：
+- **公式**：`decay = base_rate × time_factor × usage_factor`
+- **基础衰减率**：foundation=5%/年, convention=8%/年, context=15%/年
+- **时间因子**：`log(1 + age_years) / log(2)`（对数）
+- **使用因子**：0 次访问=2.0, 1-2 次=1.0, 3-9 次=0.5, 10-19 次=0.3, 20+ 次=0.1
+- **单次最大衰减**：每次 Dream 运行 0.10
+- **宽限期**：age < 30 天 → 跳过衰减（避免新知识强制扣分）
+- **高访问加成**：access_count >= 10 → +0.02~0.10
+- **配置文件**：`knowledge/.pmpilot/decay-config.yaml`（v0.7 新增，可配置）
 
-### Manual Verification
+### 人工校验
 
-**Triggered when confidence < 0.4**:
-1. Dream mode flags file for verification
-2. PR includes verification questions
-3. Human reviewer validates knowledge
-4. After verification:
+**当 confidence < 0.4 时触发**：
+1. Dream 模式标记文件需要校验
+2. PR 中包含校验问题
+3. 人工 reviewer 验证知识
+4. 校验完成后：
    - `last_verified = today`
    - `verification_status = "verified"`
-   - `confidence` restored to initial value (based on source)
+   - `confidence` 恢复到初始值（基于 source）
    - `verification_count += 1`
 
-## Anti-patterns
+## 反模式
 
-- Don't write temporary experiments to foundations (use context)
-- Don't duplicate — grep first
-- Don't modify main directly — always open PR
-- **Don't put files directly under `domain/foundations/` `domain/conventions/` `domain/context/`** (top-level) — these three names are reserved as subtree names inside `_shared/` or business areas
+- 不要把临时实验写入 foundations（应用 context）
+- 不要重复 — 先 grep
+- 不要直接改 main — 始终开 PR
+- **不要把文件直接放在 `domain/foundations/` `domain/conventions/` `domain/context/`（顶层）下** — 这三个名称保留为 `_shared/` 或业务领域内部的子目录名

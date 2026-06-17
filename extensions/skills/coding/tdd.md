@@ -5,8 +5,8 @@ when: "开发业务功能、改核心模块（payment/risk）、写新的 API en
 priority: high
 
 # === Lifecycle ===
-created: 2026-06-14
-last_accessed: 2026-06-14
+created: 2026-06-04
+last_accessed: 2026-06-04
 hit_count: 0
 ttl_days: 180
 status: active
