@@ -1,6 +1,0 @@
-{
-  "name": "SuperPmAgent-io",
-  "displayName": "SuperPmAgent IO",
-  "description": "Input/output skills for normalizing external PM references and exporting session artifacts.",
-  "version": "0.1.0"
-}

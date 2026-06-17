@@ -1,6 +1,0 @@
-{
-  "name": "SuperPmAgent-core",
-  "displayName": "SuperPmAgent Core",
-  "description": "Human goal entry, clarification, discovery, extension prompt injection, and post-loop distillation.",
-  "version": "0.1.0"
-}
