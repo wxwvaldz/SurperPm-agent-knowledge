@@ -1,4 +1,24 @@
 {
   "knowledge_repo_url": "https://github.com/wxwvaldz/SurperPm-agent-knowledge",
-  "updated_at": "2026-06-17T15:54:05.466129+00:00"
+  "updated_at": "2026-06-17T16:30:37.450368+00:00",
+  "plugin_sync": {
+    "repo_urls": [
+      "https://github.com/itxaiohanglover/pmpilot-plugins"
+    ],
+    "last_synced": "2026-06-17T16:30:37.449652+00:00",
+    "results": [
+      {
+        "repo_url": "https://github.com/itxaiohanglover/pmpilot-plugins",
+        "ok": true,
+        "commit": "2f7e4d5",
+        "synced": [
+          "pmpilot-business",
+          "pmpilot-coding",
+          "pmpilot-core",
+          "pmpilot-io",
+          "pmpilot-learning"
+        ]
+      }
+    ]
+  }
 }
