@@ -7,12 +7,12 @@
   "ai_base_url": null,
   "ai_model": null,
   "distill_config": "{\"internal_sources\":{\"executions\":true,\"discussions\":true},\"external_sources\":[{\"type\":\"webpage\",\"url\":\"https://www.anthropic.com/news\"}],\"schedule\":{\"interval_hours\":24},\"decay\":{\"archive_threshold\":0.3,\"pin_bonus\":0.5},\"max_learnings_per_cycle\":10}",
-  "updated_at": "2026-06-17T10:22:14.902321+00:00",
+  "updated_at": "2026-06-17T10:25:36.773134+00:00",
   "plugin_sync": {
     "repo_urls": [
       "git@github.com:itxaiohanglover/pmpilot-plugins.git"
     ],
-    "last_synced": "2026-06-17T10:13:52.902603+00:00",
+    "last_synced": "2026-06-17T10:25:36.772328+00:00",
     "results": [
       {
         "repo_url": "git@github.com:itxaiohanglover/pmpilot-plugins.git",
